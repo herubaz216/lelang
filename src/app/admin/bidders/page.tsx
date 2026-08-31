@@ -64,12 +64,12 @@ export default function BiddersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Bidder</h1>
-          <p className="text-slate-400">Kelola peserta lelang</p>
+          <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Bidder</h1>
+          <p className="text-sm text-slate-500">Kelola peserta lelang</p>
         </div>
-        <Button variant="gold" onClick={() => setShowForm(!showForm)}>
+        <Button variant="primary" size="sm" className="w-full sm:w-auto" onClick={() => setShowForm(!showForm)}>
           <Plus className="mr-2 h-4 w-4" />
           Tambah Bidder
         </Button>
@@ -135,7 +135,7 @@ export default function BiddersPage() {
                 <Label htmlFor="is_active">Aktif</Label>
               </div>
               <div className="flex gap-2 sm:col-span-2">
-                <Button type="submit" variant="gold" disabled={loading}>
+                <Button type="submit" variant="primary" disabled={loading}>
                   {loading ? "Menyimpan..." : "Simpan"}
                 </Button>
                 <Button
@@ -157,13 +157,13 @@ export default function BiddersPage() {
             <CardContent className="flex items-center justify-between py-4">
               <div>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-sm text-amber-400">
+                  <span className="font-mono text-sm text-[var(--primary)]">
                     {bidder.employee_nik}
                   </span>
                   <Badge status={bidder.is_active ? "active" : "cancelled"} />
                 </div>
-                <h3 className="font-semibold text-white">{bidder.full_name}</h3>
-                <p className="text-sm text-slate-400">
+                <h3 className="font-semibold text-slate-900">{bidder.full_name}</h3>
+                <p className="text-sm text-slate-500">
                   Alias: {bidder.public_alias}
                 </p>
               </div>

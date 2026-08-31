@@ -1,31 +1,122 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Gavel } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { usePathname } from "next/navigation";
+import { Gavel, Menu } from "lucide-react";
+import { NavbarAuth } from "@/components/navbar-auth";
+import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
+import { createClient } from "@/lib/supabase/client";
+import { Profile } from "@/lib/database.types";
+import { cn } from "@/lib/utils";
+
+const links = [
+  { href: "/", label: "Beranda" },
+  { href: "/lots", label: "Semua Lot" },
+  { href: "/hasil", label: "Cek Hasil" },
+];
 
 export function Navbar() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const pathname = usePathname();
+  const supabase = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    async function load() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setProfile(null);
+        return;
+      }
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+      setProfile(data);
+    }
+    load();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => load());
+    return () => subscription.unsubscribe();
+  }, [supabase]);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
+  const isBidder = profile?.role === "bidder";
+
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-yellow-400">
-            <Gavel className="h-5 w-5 text-slate-900" />
+    <>
+      <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-white/80 backdrop-blur-lg">
+        <div className="container-app flex h-16 items-center justify-between">
+          <div className="flex items-center gap-3 lg:gap-8">
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 lg:hidden"
+              aria-label="Buka menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
+            <Link href="/" className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--primary)]">
+                <Gavel className="h-4.5 w-4.5 text-white" />
+              </div>
+              <span className="text-base font-semibold text-slate-900">E-Lelang</span>
+            </Link>
+
+            <nav className="hidden items-center gap-6 lg:flex">
+              {links.map(({ href, label }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    "text-sm font-medium transition-colors",
+                    pathname === href
+                      ? "text-[var(--primary)]"
+                      : "text-slate-600 hover:text-slate-900"
+                  )}
+                >
+                  {label}
+                </Link>
+              ))}
+              {isBidder && (
+                <Link
+                  href="/bid-saya"
+                  className={cn(
+                    "text-sm font-medium transition-colors",
+                    pathname === "/bid-saya"
+                      ? "text-[var(--primary)]"
+                      : "text-slate-600 hover:text-slate-900"
+                  )}
+                >
+                  Bid Saya
+                </Link>
+              )}
+            </nav>
           </div>
-          <span className="text-lg font-bold text-white">LelangCorp</span>
-        </Link>
-        <nav className="flex items-center gap-4">
-          <Link
-            href="/lots"
-            className="text-sm text-slate-300 transition hover:text-white"
-          >
-            Semua Lot
-          </Link>
-          <Link href="/login">
-            <Button variant="outline" size="sm">
-              Staff Login
-            </Button>
-          </Link>
-        </nav>
-      </div>
-    </header>
+
+          <NavbarAuth profile={profile} />
+        </div>
+      </header>
+
+      <MobileNavDrawer
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        profile={profile}
+      />
+    </>
   );
 }

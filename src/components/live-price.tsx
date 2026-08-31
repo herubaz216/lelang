@@ -1,16 +1,48 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { AuctionItem } from "@/lib/database.types";
 import { formatRupiah } from "@/lib/format";
+import { subscribeItemBidUpdates } from "@/lib/bid-events";
+import { cn } from "@/lib/utils";
 
-export function LivePrice({ itemId, initialPrice }: { itemId: string; initialPrice: number }) {
+export function LivePrice({
+  itemId,
+  initialPrice,
+}: {
+  itemId: string;
+  initialPrice: number;
+}) {
   const [price, setPrice] = useState(initialPrice);
   const [pulse, setPulse] = useState(false);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
+
+  const loadPrice = useCallback(async () => {
+    const { data } = await supabase
+      .from("auction_items")
+      .select("current_price")
+      .eq("id", itemId)
+      .maybeSingle();
+
+    if (!data) return;
+
+    setPrice((prev) => {
+      if (prev !== data.current_price) {
+        setPulse(true);
+        setTimeout(() => setPulse(false), 800);
+      }
+      return data.current_price;
+    });
+  }, [itemId, supabase]);
 
   useEffect(() => {
+    setPrice(initialPrice);
+  }, [initialPrice]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeItemBidUpdates(itemId, loadPrice);
+
     const channel = supabase
       .channel(`price-${itemId}`)
       .on(
@@ -23,23 +55,29 @@ export function LivePrice({ itemId, initialPrice }: { itemId: string; initialPri
         },
         (payload) => {
           const updated = payload.new as AuctionItem;
-          if (updated.current_price !== price) {
-            setPrice(updated.current_price);
-            setPulse(true);
-            setTimeout(() => setPulse(false), 1000);
-          }
+          setPrice((prev) => {
+            if (prev !== updated.current_price) {
+              setPulse(true);
+              setTimeout(() => setPulse(false), 800);
+            }
+            return updated.current_price;
+          });
         }
       )
       .subscribe();
 
     return () => {
+      unsubscribe();
       supabase.removeChannel(channel);
     };
-  }, [itemId, price]);
+  }, [itemId, loadPrice, supabase]);
 
   return (
     <p
-      className={`text-3xl font-bold text-amber-400 transition-all ${pulse ? "scale-105" : ""}`}
+      className={cn(
+        "text-3xl font-bold text-slate-900 transition-all",
+        pulse && "scale-[1.02] text-[var(--primary)]"
+      )}
     >
       {formatRupiah(price)}
     </p>

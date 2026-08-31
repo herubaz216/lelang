@@ -6,12 +6,14 @@ import { AuctionPeriod } from "@/lib/database.types";
 import { formatDateTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea, Select } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PeriodItemsPanel } from "@/components/admin/period-items-panel";
 import { toast } from "sonner";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Calendar, ArrowLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const emptyForm = {
+const emptyPeriodForm = {
   code: "",
   title: "",
   description: "",
@@ -20,24 +22,116 @@ const emptyForm = {
   status: "draft",
 };
 
-export default function PeriodsPage() {
+type RightPanel = "items" | "period-form";
+type MobileView = "list" | "detail";
+
+function PeriodFormFields({
+  form,
+  setForm,
+  loading,
+  onSubmit,
+  onCancel,
+}: {
+  form: typeof emptyPeriodForm;
+  setForm: React.Dispatch<React.SetStateAction<typeof emptyPeriodForm>>;
+  loading: boolean;
+  onSubmit: (e: React.FormEvent) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2">
+      <div className="space-y-2">
+        <Label>Kode</Label>
+        <Input
+          value={form.code}
+          onChange={(e) => setForm({ ...form, code: e.target.value })}
+          placeholder="AUG-2026"
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Status</Label>
+        <Select
+          value={form.status}
+          onChange={(e) => setForm({ ...form, status: e.target.value })}
+        >
+          <option value="draft">Draft</option>
+          <option value="active">Active</option>
+          <option value="finished">Finished</option>
+          <option value="cancelled">Cancelled</option>
+        </Select>
+      </div>
+      <div className="space-y-2 sm:col-span-2">
+        <Label>Judul</Label>
+        <Input
+          value={form.title}
+          onChange={(e) => setForm({ ...form, title: e.target.value })}
+          required
+        />
+      </div>
+      <div className="space-y-2 sm:col-span-2">
+        <Label>Deskripsi</Label>
+        <Textarea
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Mulai</Label>
+        <Input
+          type="datetime-local"
+          value={form.start_at}
+          onChange={(e) => setForm({ ...form, start_at: e.target.value })}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Selesai</Label>
+        <Input
+          type="datetime-local"
+          value={form.end_at}
+          onChange={(e) => setForm({ ...form, end_at: e.target.value })}
+          required
+        />
+      </div>
+      <div className="flex flex-wrap gap-2 sm:col-span-2">
+        <Button type="submit" variant="primary" disabled={loading}>
+          {loading ? "Menyimpan..." : "Simpan"}
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Batal
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export default function PeriodsMasterDetailPage() {
   const [periods, setPeriods] = useState<AuctionPeriod[]>([]);
-  const [form, setForm] = useState(emptyForm);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyPeriodForm);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
+  const [rightPanel, setRightPanel] = useState<RightPanel>("items");
+  const [mobileView, setMobileView] = useState<MobileView>("list");
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
 
-  async function load() {
+  const selectedPeriod = periods.find((p) => p.id === selectedId) ?? null;
+
+  async function loadPeriods() {
     const { data } = await supabase
       .from("auction_periods")
       .select("*")
       .order("created_at", { ascending: false });
-    setPeriods(data ?? []);
+    const list = data ?? [];
+    setPeriods(list);
+    if (list.length > 0 && !selectedId) {
+      setSelectedId(list[0].id);
+    }
   }
 
   useEffect(() => {
-    load();
+    loadPeriods();
   }, []);
 
   function toLocalDatetime(iso: string) {
@@ -48,7 +142,8 @@ export default function PeriodsPage() {
     return local.toISOString().slice(0, 16);
   }
 
-  function startEdit(period: AuctionPeriod) {
+  function startEditPeriod(period: AuctionPeriod) {
+    setSelectedId(period.id);
     setEditingId(period.id);
     setForm({
       code: period.code,
@@ -58,10 +153,40 @@ export default function PeriodsPage() {
       end_at: toLocalDatetime(period.end_at),
       status: period.status,
     });
-    setShowForm(true);
+    setRightPanel("period-form");
+    setMobileView("detail");
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function startAddPeriod() {
+    setEditingId(null);
+    setForm(emptyPeriodForm);
+    setRightPanel("period-form");
+    setMobileView("detail");
+  }
+
+  function cancelPeriodForm() {
+    setEditingId(null);
+    setForm(emptyPeriodForm);
+    setRightPanel("items");
+    setMobileView("list");
+  }
+
+  function selectPeriod(id: string) {
+    setSelectedId(id);
+    setRightPanel("items");
+    setEditingId(null);
+    setForm(emptyPeriodForm);
+    setMobileView("detail");
+  }
+
+  function backToList() {
+    setMobileView("list");
+    setRightPanel("items");
+    setEditingId(null);
+    setForm(emptyPeriodForm);
+  }
+
+  async function handlePeriodSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
 
@@ -74,9 +199,14 @@ export default function PeriodsPage() {
       status: form.status,
     };
 
-    const { error } = editingId
-      ? await supabase.from("auction_periods").update(payload).eq("id", editingId)
-      : await supabase.from("auction_periods").insert(payload);
+    const { data, error } = editingId
+      ? await supabase
+          .from("auction_periods")
+          .update(payload)
+          .eq("id", editingId)
+          .select()
+          .single()
+      : await supabase.from("auction_periods").insert(payload).select().single();
 
     setLoading(false);
 
@@ -86,137 +216,190 @@ export default function PeriodsPage() {
     }
 
     toast.success(editingId ? "Periode diperbarui" : "Periode dibuat");
-    setForm(emptyForm);
     setEditingId(null);
-    setShowForm(false);
-    load();
+    setForm(emptyPeriodForm);
+    setRightPanel("items");
+    setMobileView("detail");
+    await loadPeriods();
+    if (data) setSelectedId(data.id);
   }
 
+  const periodFormContent = (
+    <>
+      <div className="mb-4 flex items-center gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 lg:hidden"
+          onClick={cancelPeriodForm}
+          aria-label="Kembali"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="hidden h-8 w-8 p-0 lg:inline-flex"
+          onClick={cancelPeriodForm}
+          aria-label="Kembali"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h2 className="font-semibold text-slate-900">
+          {editingId ? "Edit Periode" : "Tambah Periode"}
+        </h2>
+      </div>
+      <Card>
+        <CardContent className="pt-6">
+          <PeriodFormFields
+            form={form}
+            setForm={setForm}
+            loading={loading}
+            onSubmit={handlePeriodSubmit}
+            onCancel={cancelPeriodForm}
+          />
+        </CardContent>
+      </Card>
+    </>
+  );
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Periode Lelang</h1>
-          <p className="text-slate-400">Kelola periode lelang</p>
+          <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Periode Lelang</h1>
+          <p className="text-sm text-slate-500">Kelola periode dan barang lelang</p>
         </div>
         <Button
-          variant="gold"
-          onClick={() => {
-            setForm(emptyForm);
-            setEditingId(null);
-            setShowForm(!showForm);
-          }}
+          variant="primary"
+          size="sm"
+          className="w-full shrink-0 whitespace-nowrap sm:w-auto"
+          onClick={startAddPeriod}
         >
-          <Plus className="mr-2 h-4 w-4" />
+          <Plus className="h-4 w-4" />
           Tambah Periode
         </Button>
       </div>
 
-      {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{editingId ? "Edit" : "Tambah"} Periode</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Kode</Label>
-                <Input
-                  value={form.code}
-                  onChange={(e) => setForm({ ...form, code: e.target.value })}
-                  placeholder="AUG-2026"
-                  required
-                />
+      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row lg:overflow-hidden">
+        {/* Master: period list */}
+        <div
+          className={cn(
+            "flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-white lg:w-80 lg:shrink-0",
+            mobileView === "detail" ? "hidden lg:flex" : "flex",
+            "max-h-[70vh] lg:max-h-none lg:min-h-[480px]"
+          )}
+        >
+          <div className="border-b border-[var(--border)] px-4 py-3">
+            <p className="text-sm font-semibold text-slate-900">Daftar Periode</p>
+            <p className="text-xs text-slate-500">{periods.length} periode</p>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2">
+            {periods.length === 0 ? (
+              <div className="flex flex-col items-center py-12 text-center">
+                <Calendar className="h-8 w-8 text-slate-300" />
+                <p className="mt-2 text-sm text-slate-500">Belum ada periode</p>
               </div>
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select
-                  value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
+            ) : (
+              periods.map((period) => (
+                <div
+                  key={period.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => selectPeriod(period.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") selectPeriod(period.id);
+                  }}
+                  className={cn(
+                    "mb-1 flex w-full cursor-pointer items-start justify-between gap-2 rounded-xl p-3 text-left transition-colors",
+                    selectedId === period.id && rightPanel === "items"
+                      ? "bg-indigo-50 ring-1 ring-indigo-200"
+                      : "hover:bg-slate-50"
+                  )}
                 >
-                  <option value="draft">Draft</option>
-                  <option value="active">Active</option>
-                  <option value="finished">Finished</option>
-                  <option value="cancelled">Cancelled</option>
-                </Select>
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Judul</Label>
-                <Input
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Deskripsi</Label>
-                <Textarea
-                  value={form.description}
-                  onChange={(e) =>
-                    setForm({ ...form, description: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Mulai</Label>
-                <Input
-                  type="datetime-local"
-                  value={form.start_at}
-                  onChange={(e) =>
-                    setForm({ ...form, start_at: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Selesai</Label>
-                <Input
-                  type="datetime-local"
-                  value={form.end_at}
-                  onChange={(e) => setForm({ ...form, end_at: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="flex gap-2 sm:col-span-2">
-                <Button type="submit" variant="gold" disabled={loading}>
-                  {loading ? "Menyimpan..." : "Simpan"}
-                </Button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-xs font-semibold text-[var(--primary)]">
+                        {period.code}
+                      </span>
+                      <Badge status={period.status} />
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-sm font-medium text-slate-900">
+                      {period.title}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {formatDateTime(period.start_at)}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 shrink-0 p-0"
+                    aria-label="Edit periode"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startEditPeriod(period);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Detail: desktop */}
+        <div className="hidden min-h-0 flex-1 overflow-hidden rounded-2xl border border-[var(--border)] bg-white lg:flex lg:flex-col lg:min-h-[480px]">
+          {rightPanel === "period-form" ? (
+            <div className="overflow-y-auto p-4 sm:p-5">{periodFormContent}</div>
+          ) : selectedPeriod ? (
+            <PeriodItemsPanel key={selectedPeriod.id} periodId={selectedPeriod.id} />
+          ) : (
+            <div className="flex flex-1 items-center justify-center p-6 text-center text-slate-500">
+              Pilih periode untuk melihat barang
+            </div>
+          )}
+        </div>
+
+        {/* Detail: mobile */}
+        <div
+          className={cn(
+            "overflow-hidden rounded-2xl border border-[var(--border)] bg-white lg:hidden",
+            mobileView === "list" && "hidden"
+          )}
+        >
+          {mobileView === "detail" && rightPanel === "period-form" ? (
+            <div className="p-4">{periodFormContent}</div>
+          ) : mobileView === "detail" && selectedPeriod ? (
+            <div>
+              <div className="flex items-center gap-2 border-b border-[var(--border)] px-4 py-3">
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={() => setShowForm(false)}
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={backToList}
+                  aria-label="Kembali ke daftar"
                 >
-                  Batal
+                  <ArrowLeft className="h-4 w-4" />
                 </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="space-y-3">
-        {periods.map((period) => (
-          <Card key={period.id}>
-            <CardContent className="flex items-center justify-between py-4">
-              <div>
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-sm text-amber-400">
-                    {period.code}
-                  </span>
-                  <Badge status={period.status} />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-900">
+                    {selectedPeriod.title}
+                  </p>
+                  <p className="font-mono text-xs text-[var(--primary)]">
+                    {selectedPeriod.code}
+                  </p>
                 </div>
-                <h3 className="font-semibold text-white">{period.title}</h3>
-                <p className="text-sm text-slate-400">
-                  {formatDateTime(period.start_at)} —{" "}
-                  {formatDateTime(period.end_at)}
-                </p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => startEdit(period)}>
-                <Pencil className="h-4 w-4" />
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
+              <PeriodItemsPanel key={selectedPeriod.id} periodId={selectedPeriod.id} />
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );

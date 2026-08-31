@@ -3,30 +3,34 @@ import { cn } from "@/lib/utils";
 
 export function Button({
   className,
-  variant = "default",
-  size = "default",
+  variant = "primary",
+  size = "md",
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "default" | "outline" | "ghost" | "gold" | "destructive";
-  size?: "default" | "sm" | "lg";
+  variant?: "primary" | "secondary" | "ghost" | "outline" | "danger";
+  size?: "sm" | "md" | "lg";
 }) {
   const variants = {
-    default: "bg-white text-slate-900 hover:bg-slate-100",
-    outline: "border border-white/20 bg-transparent text-white hover:bg-white/10",
-    ghost: "bg-transparent text-white hover:bg-white/10",
-    gold: "bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-900 font-semibold hover:from-amber-400 hover:to-yellow-300",
-    destructive: "bg-red-600 text-white hover:bg-red-500",
+    primary:
+      "bg-[var(--primary)] text-white shadow-sm active:bg-indigo-700",
+    secondary:
+      "bg-[var(--muted-bg)] text-[var(--foreground)] active:bg-slate-200",
+    outline:
+      "border border-[var(--border)] bg-white text-[var(--foreground)] active:bg-slate-50",
+    ghost:
+      "text-[var(--muted)] active:bg-slate-100 active:text-[var(--foreground)]",
+    danger: "bg-red-600 text-white active:bg-red-700",
   };
   const sizes = {
-    default: "h-10 px-4 py-2",
-    sm: "h-8 px-3 text-sm",
-    lg: "h-12 px-6 text-base",
+    sm: "h-9 px-3.5 text-sm rounded-lg",
+    md: "h-11 px-5 text-sm font-medium rounded-xl",
+    lg: "h-12 px-6 text-base font-medium rounded-xl",
   };
 
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 transition-colors disabled:pointer-events-none disabled:opacity-50",
         variants[variant],
         sizes[size],
         className

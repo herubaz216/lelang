@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Navbar } from "@/components/navbar";
-import { AuctionCard } from "@/components/auction-card";
+import { Footer } from "@/components/footer";
+import { LotCard } from "@/components/lot-card";
 import { AuctionItem, ItemPhoto } from "@/lib/database.types";
 
 export default async function LotsPage() {
@@ -27,23 +28,32 @@ export default async function LotsPage() {
   }));
 
   return (
-    <div className="min-h-screen">
+    <div className="flex min-h-screen flex-col">
       <Navbar />
-      <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-        <h1 className="mb-2 text-3xl font-bold text-white">Semua Lot</h1>
-        <p className="mb-8 text-slate-400">
-          {itemsWithPhotos.length} barang tersedia
-        </p>
-        {itemsWithPhotos.length === 0 ? (
-          <p className="text-center text-slate-400">Belum ada lot tersedia.</p>
-        ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {itemsWithPhotos.map(({ item, photos: itemPhotos }) => (
-              <AuctionCard key={item.id} item={item} photos={itemPhotos} />
-            ))}
+      <main className="flex-1">
+        <div className="border-b border-[var(--border)] bg-white">
+          <div className="container-app py-10">
+            <h1 className="text-3xl font-bold text-slate-900">Semua Lot</h1>
+            <p className="mt-2 text-slate-500">
+              {itemsWithPhotos.length} barang tersedia untuk dilelang
+            </p>
           </div>
-        )}
+        </div>
+        <div className="container-app py-10">
+          {itemsWithPhotos.length === 0 ? (
+            <div className="flex flex-col items-center py-20 text-center">
+              <p className="text-slate-500">Belum ada lot tersedia.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3">
+              {itemsWithPhotos.map(({ item, photos: itemPhotos }) => (
+                <LotCard key={item.id} item={item} photos={itemPhotos} />
+              ))}
+            </div>
+          )}
+        </div>
       </main>
+      <Footer />
     </div>
   );
 }

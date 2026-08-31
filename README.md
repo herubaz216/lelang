@@ -1,4 +1,4 @@
-# LelangCorp — Platform Lelang Internal
+# E-Lelang — Platform Lelang Internal
 
 Website lelang aset operasional perusahaan, dibangun dengan **Next.js 16** + **Supabase**.
 

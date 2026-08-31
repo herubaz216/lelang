@@ -73,12 +73,12 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Laporan</h1>
-          <p className="text-slate-400">Riwayat penawaran dan audit log</p>
+          <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Laporan</h1>
+          <p className="text-sm text-slate-500">Riwayat penawaran dan audit log</p>
         </div>
-        <Button variant="gold" onClick={exportCsv} disabled={bids.length === 0}>
+        <Button variant="primary" size="sm" className="w-full sm:w-auto" onClick={exportCsv} disabled={bids.length === 0}>
           <Download className="mr-2 h-4 w-4" />
           Export CSV
         </Button>
@@ -90,12 +90,12 @@ export default function ReportsPage() {
         </CardHeader>
         <CardContent>
           {bids.length === 0 ? (
-            <p className="text-sm text-slate-400">Belum ada penawaran.</p>
+            <p className="text-sm text-slate-500">Belum ada penawaran.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/10 text-left text-slate-400">
+                  <tr className="border-b border-[var(--border)] text-left text-slate-500">
                     <th className="pb-3 pr-4">Lot</th>
                     <th className="pb-3 pr-4">Barang</th>
                     <th className="pb-3 pr-4">Bidder</th>
@@ -108,16 +108,16 @@ export default function ReportsPage() {
                   {bids.map((bid) => (
                     <tr
                       key={bid.id}
-                      className="border-b border-white/5 text-slate-300"
+                      className="border-b border-[var(--border)] text-slate-700"
                     >
-                      <td className="py-3 pr-4 font-mono text-amber-400">
+                      <td className="py-3 pr-4 font-mono text-[var(--primary)]">
                         {bid.auction_items?.lot_number}
                       </td>
                       <td className="py-3 pr-4">{bid.auction_items?.item_name}</td>
                       <td className="py-3 pr-4">
                         {bid.bidder_profiles?.public_alias}
                       </td>
-                      <td className="py-3 pr-4 font-semibold text-white">
+                      <td className="py-3 pr-4 font-semibold text-slate-900">
                         {formatRupiah(bid.amount)}
                       </td>
                       <td className="py-3 pr-4">
@@ -139,17 +139,17 @@ export default function ReportsPage() {
         </CardHeader>
         <CardContent>
           {audits.length === 0 ? (
-            <p className="text-sm text-slate-400">Belum ada log.</p>
+            <p className="text-sm text-slate-500">Belum ada log.</p>
           ) : (
             <div className="space-y-2">
               {audits.map((log) => (
                 <div
                   key={log.id}
-                  className="flex items-center justify-between rounded-lg border border-white/5 bg-white/5 px-4 py-3 text-sm"
+                  className="flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-slate-50 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div>
-                    <span className="font-medium text-white">{log.action}</span>
-                    <span className="ml-2 text-slate-400">{log.table_name}</span>
+                    <span className="font-medium text-slate-900">{log.action}</span>
+                    <span className="ml-2 text-slate-500">{log.table_name}</span>
                   </div>
                   <span className="text-slate-500">
                     {formatDateTime(log.created_at)}

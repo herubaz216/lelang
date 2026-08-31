@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Calendar,
-  Package,
   Users,
   FileText,
   LogOut,
@@ -17,13 +16,22 @@ import { Profile } from "@/lib/database.types";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/periods", label: "Periode", icon: Calendar },
-  { href: "/admin/items", label: "Barang", icon: Package },
+  { href: "/admin/periods", label: "Periode & Barang", icon: Calendar },
   { href: "/admin/bidders", label: "Bidder", icon: Users },
   { href: "/admin/reports", label: "Laporan", icon: FileText },
 ];
 
-export function AdminSidebar({ profile }: { profile: Profile }) {
+export function AdminSidebar({
+  profile,
+  collapsed = false,
+  mobileOpen = false,
+  onMobileClose,
+}: {
+  profile: Profile;
+  collapsed?: boolean;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -34,40 +42,87 @@ export function AdminSidebar({ profile }: { profile: Profile }) {
     router.refresh();
   }
 
+  function handleNavClick() {
+    onMobileClose?.();
+  }
+
   return (
-    <aside className="flex w-64 flex-col border-r border-white/10 bg-slate-950/50">
-      <div className="flex h-16 items-center gap-2 border-b border-white/10 px-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-yellow-400">
-          <Gavel className="h-4 w-4 text-slate-900" />
+    <aside
+      className={cn(
+        "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-[var(--border)] bg-white transition-all duration-300 ease-in-out",
+        "lg:relative lg:z-auto lg:translate-x-0",
+        mobileOpen ? "translate-x-0" : "-translate-x-full",
+        collapsed ? "w-[4.5rem]" : "w-64"
+      )}
+    >
+      <div
+        className={cn(
+          "flex h-14 shrink-0 items-center border-b border-[var(--border)]",
+          collapsed ? "justify-center px-2" : "gap-2.5 px-4"
+        )}
+      >
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)]">
+          <Gavel className="h-4 w-4 text-white" />
         </div>
-        <span className="font-bold text-white">Admin</span>
+        {!collapsed && (
+          <span className="truncate font-semibold text-slate-900">Admin</span>
+        )}
       </div>
-      <nav className="flex-1 space-y-1 p-4">
-        {navItems.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition",
-              pathname === href
-                ? "bg-amber-500/20 text-amber-400"
-                : "text-slate-400 hover:bg-white/5 hover:text-white"
-            )}
-          >
-            <Icon className="h-4 w-4" />
-            {label}
-          </Link>
-        ))}
+
+      <nav className="flex-1 space-y-1 overflow-y-auto p-2">
+        {navItems.map(({ href, label, icon: Icon }) => {
+          const isActive =
+            href === "/admin"
+              ? pathname === "/admin"
+              : pathname === href || pathname.startsWith(`${href}/`);
+          return (
+            <Link
+              key={href}
+              href={href}
+              onClick={handleNavClick}
+              title={collapsed ? label : undefined}
+              className={cn(
+                "flex items-center rounded-xl text-sm font-medium transition-colors",
+                collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
+                isActive
+                  ? "bg-indigo-50 text-[var(--primary)]"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              )}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              {!collapsed && <span className="truncate">{label}</span>}
+            </Link>
+          );
+        })}
       </nav>
-      <div className="border-t border-white/10 p-4">
-        <p className="mb-1 text-sm font-medium text-white">{profile.full_name}</p>
-        <p className="mb-3 text-xs capitalize text-slate-400">{profile.role}</p>
+
+      <div
+        className={cn(
+          "shrink-0 border-t border-[var(--border)] p-2",
+          collapsed && "flex flex-col items-center"
+        )}
+      >
+        {!collapsed && (
+          <>
+            <p className="truncate px-2 text-sm font-medium text-slate-900">
+              {profile.full_name}
+            </p>
+            <p className="mb-2 truncate px-2 text-xs capitalize text-slate-500">
+              {profile.role}
+            </p>
+          </>
+        )}
         <button
+          type="button"
           onClick={handleLogout}
-          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white"
+          title={collapsed ? "Keluar" : undefined}
+          className={cn(
+            "flex w-full items-center rounded-xl text-sm text-slate-600 transition-colors hover:bg-slate-50",
+            collapsed ? "justify-center px-2 py-2.5" : "gap-2 px-3 py-2.5"
+          )}
         >
-          <LogOut className="h-4 w-4" />
-          Keluar
+          <LogOut className="h-4 w-4 shrink-0" />
+          {!collapsed && "Keluar"}
         </button>
       </div>
     </aside>

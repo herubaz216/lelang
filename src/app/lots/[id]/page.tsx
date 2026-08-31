@@ -1,16 +1,18 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 import { BidForm } from "@/components/bid-form";
 import { BidFeed } from "@/components/bid-feed";
 import { LivePrice } from "@/components/live-price";
+import { PhotoCarousel } from "@/components/photo-carousel";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatRupiah, getPhotoUrl } from "@/lib/format";
-import { ArrowLeft } from "lucide-react";
+import { formatRupiah } from "@/lib/format";
+import { isPeriodBiddingOpen, isPeriodClosed } from "@/lib/auction";
+import { ArrowLeft, Lock } from "lucide-react";
 
 export default async function LotDetailPage({
   params,
@@ -40,108 +42,108 @@ export default async function LotDetailPage({
     .eq("id", item.period_id)
     .maybeSingle();
 
+  const biddingOpen = isPeriodBiddingOpen(period);
+  const periodClosed = isPeriodClosed(period);
+
   return (
-    <div className="min-h-screen">
+    <div className="flex min-h-screen flex-col">
       <Navbar />
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <Link href="/lots">
-          <Button variant="ghost" size="sm" className="mb-6 gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Kembali
-          </Button>
-        </Link>
-
-        <div className="grid gap-8 lg:grid-cols-2">
-          <div className="space-y-4">
-            <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-slate-800">
-              {photos && photos.length > 0 ? (
-                <Image
-                  src={getPhotoUrl(photos[0].storage_path)}
-                  alt={item.item_name}
-                  fill
-                  className="object-cover"
-                  priority
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-6xl">
-                  📦
-                </div>
-              )}
-            </div>
-            {photos && photos.length > 1 && (
-              <div className="grid grid-cols-4 gap-2">
-                {photos.slice(1).map((photo) => (
-                  <div
-                    key={photo.id}
-                    className="relative aspect-square overflow-hidden rounded-lg bg-slate-800"
-                  >
-                    <Image
-                      src={getPhotoUrl(photo.storage_path)}
-                      alt=""
-                      fill
-                      className="object-cover"
-                      sizes="100px"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
+      <main className="flex-1">
+        <div className="border-b border-[var(--border)] bg-white">
+          <div className="container-app py-4">
+            <Link href="/lots">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Kembali
+              </Button>
+            </Link>
           </div>
+        </div>
 
-          <div className="space-y-6">
-            <div>
-              <div className="mb-2 flex items-center gap-3">
-                <span className="font-mono text-sm text-amber-400">
-                  {item.lot_number}
-                </span>
-                <Badge status={item.status} />
-                {item.category && (
-                  <span className="text-sm text-slate-400">{item.category}</span>
+        {periodClosed && (
+          <div className="border-b border-slate-200 bg-slate-800 text-white">
+            <div className="container-app flex items-center gap-3 py-3 text-sm">
+              <Lock className="h-4 w-4 shrink-0" />
+              <p>
+                Periode lelang <strong>{period?.code}</strong> telah selesai — penawaran
+                ditutup.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="container-app py-6 sm:py-10">
+          <div className="grid gap-8 lg:grid-cols-2 lg:gap-10">
+            <div className="space-y-6">
+              <PhotoCarousel photos={photos ?? []} alt={item.item_name} />
+              <BidFeed itemId={item.id} />
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <span className="rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">
+                    {item.lot_number}
+                  </span>
+                  <Badge status={item.status} />
+                  {periodClosed && (
+                    <span className="inline-flex items-center rounded-full bg-slate-800 px-2.5 py-0.5 text-xs font-semibold text-white">
+                      Closed
+                    </span>
+                  )}
+                  {item.category && (
+                    <span className="text-sm text-slate-500">{item.category}</span>
+                  )}
+                </div>
+                <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
+                  {item.item_name}
+                </h1>
+                {period && (
+                  <p className="mt-2 text-sm text-slate-500">{period.title}</p>
                 )}
               </div>
-              <h1 className="text-3xl font-bold text-white">{item.item_name}</h1>
-              {period && (
-                <p className="mt-1 text-sm text-slate-400">{period.title}</p>
-              )}
-            </div>
 
-            <div className="glass rounded-2xl p-6">
-              <p className="text-sm text-slate-400">Harga saat ini</p>
-              <LivePrice itemId={item.id} initialPrice={item.current_price} />
-              <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-slate-400">Harga awal</p>
-                  <p className="text-white">{formatRupiah(item.starting_price)}</p>
+              <div className="rounded-2xl border border-[var(--border)] bg-white p-5 shadow-sm sm:p-6">
+                <p className="text-sm text-slate-500">Harga saat ini</p>
+                <LivePrice itemId={item.id} initialPrice={item.current_price} />
+                <div className="mt-5 grid grid-cols-2 gap-4 border-t border-[var(--border)] pt-5">
+                  <div>
+                    <p className="text-xs text-slate-500">Harga awal</p>
+                    <p className="font-medium text-slate-900">
+                      {formatRupiah(item.starting_price)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Kelipatan bid</p>
+                    <p className="font-medium text-slate-900">
+                      {formatRupiah(item.bid_increment)}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-slate-400">Kelipatan bid</p>
-                  <p className="text-white">{formatRupiah(item.bid_increment)}</p>
-                </div>
+                {biddingOpen && period && (
+                  <div className="mt-5 border-t border-[var(--border)] pt-5">
+                    <p className="mb-2 text-xs text-slate-500">Berakhir dalam</p>
+                    <CountdownTimer endAt={period.end_at} />
+                  </div>
+                )}
               </div>
-              {period && period.status === "active" && (
-                <div className="mt-4 border-t border-white/10 pt-4">
-                  <p className="text-sm text-slate-400">Berakhir dalam</p>
-                  <CountdownTimer endAt={period.end_at} />
-                </div>
-              )}
-            </div>
 
-            <div className="space-y-2 text-sm text-slate-300">
-              <p>{item.description}</p>
-              {item.item_condition && (
-                <p>
-                  <span className="text-slate-400">Kondisi: </span>
-                  {item.item_condition}
-                </p>
-              )}
-            </div>
+              <div className="rounded-2xl border border-[var(--border)] bg-slate-50 p-4 text-sm leading-relaxed text-slate-600 sm:p-5">
+                <p>{item.description}</p>
+                {item.item_condition && (
+                  <p className="mt-3 border-t border-[var(--border)] pt-3">
+                    <span className="font-medium text-slate-700">Kondisi: </span>
+                    {item.item_condition}
+                  </p>
+                )}
+              </div>
 
-            <BidForm item={item} />
-            <BidFeed itemId={item.id} />
+              <BidForm item={item} period={period} />
+            </div>
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

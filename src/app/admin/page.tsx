@@ -36,20 +36,20 @@ export default async function AdminDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-        <p className="text-slate-400">Ringkasan platform lelang</p>
+        <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+        <p className="text-slate-500">Ringkasan platform lelang</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map(({ label, value, icon: Icon }) => (
           <Card key={label}>
             <CardContent className="flex items-center gap-4 pt-6">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/20">
-                <Icon className="h-6 w-6 text-amber-400" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50">
+                <Icon className="h-6 w-6 text-[var(--primary)]" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{value}</p>
-                <p className="text-sm text-slate-400">{label}</p>
+                <p className="text-2xl font-bold text-slate-900">{value}</p>
+                <p className="text-sm text-slate-500">{label}</p>
               </div>
             </CardContent>
           </Card>
@@ -63,13 +63,13 @@ export default async function AdminDashboard() {
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex items-center gap-3">
-              <h3 className="text-lg font-semibold text-white">
+              <h3 className="text-lg font-semibold text-slate-900">
                 {activePeriod.title}
               </h3>
               <Badge status={activePeriod.status} />
             </div>
-            <p className="text-sm text-slate-400">{activePeriod.code}</p>
-            <p className="text-sm text-slate-300">{activePeriod.description}</p>
+            <p className="text-sm text-slate-500">{activePeriod.code}</p>
+            <p className="text-sm text-slate-600">{activePeriod.description}</p>
           </CardContent>
         </Card>
       )}

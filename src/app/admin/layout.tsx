@@ -1,5 +1,5 @@
 import { requireStaff } from "@/lib/auth";
-import { AdminSidebar } from "@/components/admin/sidebar";
+import { AdminShell } from "@/components/admin/admin-shell";
 
 export default async function AdminLayout({
   children,
@@ -8,10 +8,5 @@ export default async function AdminLayout({
 }) {
   const profile = await requireStaff();
 
-  return (
-    <div className="flex min-h-screen">
-      <AdminSidebar profile={profile} />
-      <main className="flex-1 overflow-auto p-8">{children}</main>
-    </div>
-  );
+  return <AdminShell profile={profile}>{children}</AdminShell>;
 }

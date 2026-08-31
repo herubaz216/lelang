@@ -261,6 +261,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      registration_otps: {
+        Row: {
+          id: string;
+          email: string;
+          otp_hash: string;
+          employee_nik: string;
+          full_name: string;
+          attempts: number;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          email: string;
+          otp_hash: string;
+          employee_nik: string;
+          full_name: string;
+          attempts?: number;
+          expires_at: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          otp_hash?: string;
+          employee_nik?: string;
+          full_name?: string;
+          attempts?: number;
+          expires_at?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -280,6 +313,28 @@ export type Database = {
           p_employee_nik: string;
           p_item_id: string;
           p_ktp: string;
+        };
+        Returns: Json;
+      };
+      register_bidder_profile: {
+        Args: {
+          p_employee_nik: string;
+          p_full_name: string;
+        };
+        Returns: string;
+      };
+      sync_bidder_profile_from_auth: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
+      email_exists: {
+        Args: { p_email: string };
+        Returns: boolean;
+      };
+      place_authenticated_bid: {
+        Args: {
+          p_item_id: string;
+          p_amount: number;
         };
         Returns: Json;
       };
