@@ -10,7 +10,8 @@ import { Input, Label, Textarea } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Upload, Package, X, ImageIcon } from "lucide-react";
+import { Plus, Pencil, Upload, Package, X } from "lucide-react";
+import { PhotoSourcePicker } from "@/components/admin/photo-source-picker";
 import { cn } from "@/lib/utils";
 
 const MAX_PHOTOS = 5;
@@ -267,27 +268,10 @@ function ItemForm({
                 </div>
               ))}
               {photos.length < MAX_PHOTOS && (
-                <label className="flex h-20 w-20 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-200 bg-white text-slate-400 transition-colors hover:border-indigo-300 hover:text-indigo-500">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    disabled={uploading}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) onPhotoUpload(file);
-                      e.target.value = "";
-                    }}
-                  />
-                  {uploading ? (
-                    <span className="text-[10px]">...</span>
-                  ) : (
-                    <>
-                      <ImageIcon className="h-5 w-5" />
-                      <span className="mt-0.5 text-[10px]">Tambah</span>
-                    </>
-                  )}
-                </label>
+                <PhotoSourcePicker
+                  uploading={uploading}
+                  onSelect={onPhotoUpload}
+                />
               )}
             </div>
           ) : (
