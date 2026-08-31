@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LelangCorp — Platform Lelang Internal
 
-## Getting Started
+Website lelang aset operasional perusahaan, dibangun dengan **Next.js 16** + **Supabase**.
 
-First, run the development server:
+## Fitur
+
+- **Halaman publik**: daftar lot, detail barang, form penawaran (NIK + KTP)
+- **Real-time bidding**: harga & riwayat bid update otomatis via Supabase Realtime
+- **Dashboard staff**: kelola periode, barang, foto, bidder, laporan
+- **Role-based access**: `ga`, `accounting`, `bidder`
+
+## Tech Stack
+
+- Next.js 16 (App Router) + TypeScript
+- Tailwind CSS
+- Supabase (Auth, PostgreSQL, Storage, Realtime, RPC)
+
+## Setup
 
 ```bash
+# Install dependencies
+npm install
+
+# Copy environment variables
+cp .env.example .env.local
+# Isi NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+# Jalankan development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Deskripsi |
+|----------|-----------|
+| `NEXT_PUBLIC_SUPABASE_URL` | URL project Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon/public API key |
 
-## Learn More
+## Struktur Halaman
 
-To learn more about Next.js, take a look at the following resources:
+| Route | Akses | Deskripsi |
+|-------|-------|-----------|
+| `/` | Publik | Landing + periode aktif |
+| `/lots` | Publik | Grid semua lot |
+| `/lots/[id]` | Publik | Detail lot + form bid |
+| `/login` | Publik | Login staff |
+| `/admin` | Staff | Dashboard |
+| `/admin/periods` | GA/Accounting | CRUD periode lelang |
+| `/admin/items` | GA/Accounting | CRUD barang + upload foto |
+| `/admin/bidders` | GA/Accounting | Kelola peserta lelang |
+| `/admin/reports` | GA/Accounting | Laporan bid + audit log |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Database
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Menggunakan Supabase PostgreSQL dengan RPC functions:
 
-## Deploy on Vercel
+- `place_public_bid` — ajukan penawaran
+- `get_public_bid_feed` — riwayat bid publik
+- `upsert_bidder` — kelola peserta lelang
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Build & Deploy
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run build
+npm start
+```
+
+## License
+
+Private — internal use only.
