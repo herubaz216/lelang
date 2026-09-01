@@ -10,7 +10,8 @@ import { Input, Label, Textarea } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Upload, Package, X } from "lucide-react";
+import { Plus, Pencil, Upload, Package, X, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PhotoSourcePicker } from "@/components/admin/photo-source-picker";
 import { cn } from "@/lib/utils";
 import { compressImageFile } from "@/lib/image-compress";
@@ -299,10 +300,12 @@ function ItemForm({
 function ItemRow({
   item,
   onEdit,
+  onDelete,
   disabled,
 }: {
   item: AuctionItem;
   onEdit: (item: AuctionItem) => void;
+  onDelete: (item: AuctionItem) => void;
   disabled?: boolean;
 }) {
   return (
@@ -325,21 +328,39 @@ function ItemRow({
         <h3 className="mt-1 truncate font-medium text-slate-900">{item.item_name}</h3>
         <p className="text-sm text-slate-500">{formatRupiah(item.current_price)}</p>
       </div>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="ml-3 h-8 w-8 shrink-0 p-0"
-        onClick={() => onEdit(item)}
-        disabled={disabled}
-        aria-label="Edit barang"
-      >
-        <Pencil className="h-4 w-4" />
-      </Button>
+      <div className="ml-3 flex shrink-0 gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={() => onEdit(item)}
+          disabled={disabled}
+          aria-label="Edit barang"
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+          onClick={() => onDelete(item)}
+          disabled={disabled}
+          aria-label="Hapus barang"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }
 
-export function PeriodItemsPanel({ periodId }: { periodId: string }) {
+export function PeriodItemsPanel({
+  periodId,
+  onItemsChange,
+}: {
+  periodId: string;
+  onItemsChange?: () => void;
+}) {
   const [items, setItems] = useState<AuctionItem[]>([]);
   const [photos, setPhotos] = useState<ItemPhoto[]>([]);
   const [form, setForm] = useState(emptyItemForm);
@@ -347,6 +368,8 @@ export function PeriodItemsPanel({ periodId }: { periodId: string }) {
   const [addingNew, setAddingNew] = useState(false);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AuctionItem | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const supabase = createClient();
 
@@ -497,6 +520,7 @@ export function PeriodItemsPanel({ periodId }: { periodId: string }) {
       }
       toast.success("Barang ditambahkan — tambahkan foto (maks. 5)");
       await loadItems();
+      onItemsChange?.();
       if (data) {
         setAddingNew(false);
         setEditingId(data.id);
@@ -573,6 +597,66 @@ export function PeriodItemsPanel({ periodId }: { periodId: string }) {
     await loadPhotos(editingId);
   }
 
+  function requestDeleteItem(item: AuctionItem) {
+    setDeleteTarget(item);
+  }
+
+  async function confirmDeleteItem() {
+    if (!deleteTarget) return;
+
+    setDeleting(true);
+
+    const { count: bidCount, error: bidError } = await supabase
+      .from("bids")
+      .select("*", { count: "exact", head: true })
+      .eq("item_id", deleteTarget.id);
+
+    if (bidError) {
+      setDeleting(false);
+      toast.error(bidError.message);
+      return;
+    }
+
+    if ((bidCount ?? 0) > 0) {
+      setDeleting(false);
+      setDeleteTarget(null);
+      toast.error("Barang sudah memiliki penawaran dan tidak dapat dihapus");
+      return;
+    }
+
+    const { data: itemPhotos } = await supabase
+      .from("item_photos")
+      .select("storage_path")
+      .eq("item_id", deleteTarget.id);
+
+    if (itemPhotos?.length) {
+      await supabase.storage
+        .from("auction-photos")
+        .remove(itemPhotos.map((photo) => photo.storage_path));
+    }
+
+    const { error } = await supabase
+      .from("auction_items")
+      .delete()
+      .eq("id", deleteTarget.id);
+
+    setDeleting(false);
+    setDeleteTarget(null);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    if (editingId === deleteTarget.id) {
+      cancelForm();
+    }
+
+    toast.success("Barang dihapus");
+    await loadItems();
+    onItemsChange?.();
+  }
+
   const formProps = {
     form,
     setForm,
@@ -636,6 +720,7 @@ export function PeriodItemsPanel({ periodId }: { periodId: string }) {
                   key={item.id}
                   item={item}
                   onEdit={startEdit}
+                  onDelete={requestDeleteItem}
                   disabled={isFormOpen}
                 />
               )
@@ -647,6 +732,20 @@ export function PeriodItemsPanel({ periodId }: { periodId: string }) {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Hapus Barang"
+        message={
+          deleteTarget
+            ? `Yakin ingin menghapus "${deleteTarget.lot_number} — ${deleteTarget.item_name}"? Tindakan ini tidak dapat dibatalkan.`
+            : ""
+        }
+        confirmLabel="Hapus"
+        loading={deleting}
+        onConfirm={confirmDeleteItem}
+        onCancel={() => !deleting && setDeleteTarget(null)}
+      />
     </div>
   );
 }

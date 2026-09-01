@@ -10,7 +10,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PeriodItemsPanel } from "@/components/admin/period-items-panel";
 import { toast } from "sonner";
-import { Plus, Pencil, Calendar, ArrowLeft } from "lucide-react";
+import { Plus, Pencil, Calendar, ArrowLeft, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
 const emptyPeriodForm = {
@@ -108,15 +109,27 @@ function PeriodFormFields({
 
 export default function PeriodsMasterDetailPage() {
   const [periods, setPeriods] = useState<AuctionPeriod[]>([]);
+  const [itemCountByPeriod, setItemCountByPeriod] = useState<Record<string, number>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyPeriodForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [rightPanel, setRightPanel] = useState<RightPanel>("items");
   const [mobileView, setMobileView] = useState<MobileView>("list");
   const [loading, setLoading] = useState(false);
+  const [deletingPeriod, setDeletingPeriod] = useState(false);
+  const [deletePeriodTarget, setDeletePeriodTarget] = useState<AuctionPeriod | null>(null);
   const supabase = createClient();
 
   const selectedPeriod = periods.find((p) => p.id === selectedId) ?? null;
+
+  async function loadItemCounts() {
+    const { data } = await supabase.from("auction_items").select("period_id");
+    const counts: Record<string, number> = {};
+    for (const row of data ?? []) {
+      counts[row.period_id] = (counts[row.period_id] ?? 0) + 1;
+    }
+    setItemCountByPeriod(counts);
+  }
 
   async function loadPeriods() {
     const { data } = await supabase
@@ -125,6 +138,7 @@ export default function PeriodsMasterDetailPage() {
       .order("created_at", { ascending: false });
     const list = data ?? [];
     setPeriods(list);
+    await loadItemCounts();
     if (list.length > 0 && !selectedId) {
       setSelectedId(list[0].id);
     }
@@ -222,6 +236,45 @@ export default function PeriodsMasterDetailPage() {
     setMobileView("detail");
     await loadPeriods();
     if (data) setSelectedId(data.id);
+  }
+
+  function requestDeletePeriod(period: AuctionPeriod) {
+    const itemCount = itemCountByPeriod[period.id] ?? 0;
+    if (itemCount > 0) {
+      toast.error("Periode masih memiliki barang. Hapus semua barang terlebih dahulu.");
+      return;
+    }
+    setDeletePeriodTarget(period);
+  }
+
+  async function confirmDeletePeriod() {
+    if (!deletePeriodTarget) return;
+
+    const deletedId = deletePeriodTarget.id;
+    setDeletingPeriod(true);
+
+    const { error } = await supabase
+      .from("auction_periods")
+      .delete()
+      .eq("id", deletedId);
+
+    setDeletingPeriod(false);
+    setDeletePeriodTarget(null);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success("Periode dihapus");
+
+    if (selectedId === deletedId) {
+      setSelectedId(null);
+      setRightPanel("items");
+      setMobileView("list");
+    }
+
+    await loadPeriods();
   }
 
   const periodFormContent = (
@@ -332,20 +385,51 @@ export default function PeriodsMasterDetailPage() {
                     <p className="mt-1 text-xs text-slate-500">
                       {formatDateTime(period.start_at)}
                     </p>
+                    <p className="mt-0.5 text-xs text-slate-400">
+                      {(itemCountByPeriod[period.id] ?? 0) === 0
+                        ? "Belum ada barang"
+                        : `${itemCountByPeriod[period.id]} barang`}
+                    </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 shrink-0 p-0"
-                    aria-label="Edit periode"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      startEditPeriod(period);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
+                  <div className="flex shrink-0 flex-col gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      aria-label="Edit periode"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEditPeriod(period);
+                      }}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        "h-8 w-8 p-0",
+                        (itemCountByPeriod[period.id] ?? 0) === 0
+                          ? "text-red-600 hover:bg-red-50 hover:text-red-700"
+                          : "text-slate-300"
+                      )}
+                      aria-label="Hapus periode"
+                      title={
+                        (itemCountByPeriod[period.id] ?? 0) === 0
+                          ? "Hapus periode"
+                          : "Hapus semua barang terlebih dahulu"
+                      }
+                      disabled={(itemCountByPeriod[period.id] ?? 0) > 0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        requestDeletePeriod(period);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))
             )}
@@ -357,7 +441,11 @@ export default function PeriodsMasterDetailPage() {
           {rightPanel === "period-form" ? (
             <div className="overflow-y-auto p-4 sm:p-5">{periodFormContent}</div>
           ) : selectedPeriod ? (
-            <PeriodItemsPanel key={selectedPeriod.id} periodId={selectedPeriod.id} />
+            <PeriodItemsPanel
+              key={selectedPeriod.id}
+              periodId={selectedPeriod.id}
+              onItemsChange={loadItemCounts}
+            />
           ) : (
             <div className="flex flex-1 items-center justify-center p-6 text-center text-slate-500">
               Pilih periode untuk melihat barang
@@ -396,11 +484,29 @@ export default function PeriodsMasterDetailPage() {
                   </p>
                 </div>
               </div>
-              <PeriodItemsPanel key={selectedPeriod.id} periodId={selectedPeriod.id} />
+              <PeriodItemsPanel
+                key={selectedPeriod.id}
+                periodId={selectedPeriod.id}
+                onItemsChange={loadItemCounts}
+              />
             </div>
           ) : null}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={deletePeriodTarget !== null}
+        title="Hapus Periode"
+        message={
+          deletePeriodTarget
+            ? `Yakin ingin menghapus periode "${deletePeriodTarget.code} — ${deletePeriodTarget.title}"? Tindakan ini tidak dapat dibatalkan.`
+            : ""
+        }
+        confirmLabel="Hapus"
+        loading={deletingPeriod}
+        onConfirm={confirmDeletePeriod}
+        onCancel={() => !deletingPeriod && setDeletePeriodTarget(null)}
+      />
     </div>
   );
 }
