@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { PeriodExportButton } from "@/components/admin/period-export-button";
@@ -19,6 +19,7 @@ import { compressImageFile } from "@/lib/image-compress";
 import { canEditPricing } from "@/lib/roles";
 import { fetchItemCategories } from "@/lib/item-categories";
 import type { ItemCategory } from "@/lib/database.types";
+import { CategoryFilter } from "@/components/category-filter";
 
 const MAX_PHOTOS = 5;
 
@@ -358,7 +359,6 @@ function ItemRow({
           <span className="font-mono text-xs font-semibold text-[var(--primary)]">
             {item.lot_number}
           </span>
-          <Badge status={item.status} />
           {item.category && <CategoryBadge name={item.category} />}
         </div>
         <h3 className="mt-1 truncate font-medium text-slate-900">{item.item_name}</h3>
@@ -422,6 +422,7 @@ export function PeriodItemsPanel({
   const [deleteTarget, setDeleteTarget] = useState<AuctionItem | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [categories, setCategories] = useState<ItemCategory[]>([]);
+  const [activeCategory, setActiveCategory] = useState("all");
   const supabase = createClient();
 
   const canEditPricingRole = canEditPricing(userRole);
@@ -451,6 +452,7 @@ export function PeriodItemsPanel({
     setEditingId(null);
     setEditingCurrentPrice(undefined);
     setPhotos([]);
+    setActiveCategory("all");
   }, [periodId]);
 
   useEffect(() => {
@@ -700,6 +702,26 @@ export function PeriodItemsPanel({
     onItemsChange?.();
   }
 
+  const categoryFilterOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of items) {
+      if (!item.category) continue;
+      counts.set(item.category, (counts.get(item.category) ?? 0) + 1);
+    }
+
+    return categories
+      .map((category) => ({
+        name: category.name,
+        count: counts.get(category.name) ?? 0,
+      }))
+      .filter((category) => category.count > 0);
+  }, [items, categories]);
+
+  const filteredItems = useMemo(() => {
+    if (activeCategory === "all") return items;
+    return items.filter((item) => item.category === activeCategory);
+  }, [items, activeCategory]);
+
   const formProps = {
     form,
     setForm,
@@ -718,28 +740,42 @@ export function PeriodItemsPanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-col gap-3 border-b border-[var(--border)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
-        <div className="min-w-0">
-          <h2 className="font-semibold text-slate-900">Barang Lelang</h2>
-          <p className="text-sm text-slate-500">{items.length} lot dalam periode ini</p>
-        </div>
-        {!isFormOpen && (
-          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
-            <PeriodExportButton
-              period={period}
-              itemCount={items.length}
-              className="w-full sm:w-auto"
-            />
-            <Button
-              variant="primary"
-              size="sm"
-              className="w-full whitespace-nowrap sm:w-auto"
-              onClick={startAdd}
-            >
-              <Plus className="h-4 w-4" />
-              Tambah Barang
-            </Button>
+      <div className="flex flex-col gap-3 border-b border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="font-semibold text-slate-900">Barang Lelang</h2>
+            <p className="text-sm text-slate-500">
+              {activeCategory === "all"
+                ? `${items.length} lot dalam periode ini`
+                : `${filteredItems.length} dari ${items.length} lot`}
+            </p>
           </div>
+          {!isFormOpen && (
+            <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
+              <PeriodExportButton
+                period={period}
+                itemCount={items.length}
+                className="w-full sm:w-auto"
+              />
+              <Button
+                variant="primary"
+                size="sm"
+                className="w-full whitespace-nowrap sm:w-auto"
+                onClick={startAdd}
+              >
+                <Plus className="h-4 w-4" />
+                Tambah Barang
+              </Button>
+            </div>
+          )}
+        </div>
+        {!isFormOpen && items.length > 0 && (
+          <CategoryFilter
+            categories={categoryFilterOptions}
+            activeCategory={activeCategory}
+            totalItems={items.length}
+            onChange={setActiveCategory}
+          />
         )}
       </div>
 
@@ -758,9 +794,24 @@ export function PeriodItemsPanel({
               Tambah Barang
             </Button>
           </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Package className="h-10 w-10 text-slate-300" />
+            <p className="mt-3 text-sm text-slate-500">
+              Tidak ada barang pada kategori ini.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4 whitespace-nowrap"
+              onClick={() => setActiveCategory("all")}
+            >
+              Tampilkan semua
+            </Button>
+          </div>
         ) : (
           <div className="space-y-2">
-            {items.map((item) =>
+            {filteredItems.map((item) =>
               editingId === item.id ? (
                 <ItemForm
                   key={item.id}
