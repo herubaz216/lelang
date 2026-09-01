@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Gavel, Menu } from "lucide-react";
 import { NavbarAuth } from "@/components/navbar-auth";
 import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
@@ -17,10 +17,38 @@ const links = [
 ];
 
 export function Navbar() {
+  return (
+    <Suspense fallback={<NavbarFallback />}>
+      <NavbarContent />
+    </Suspense>
+  );
+}
+
+function NavbarFallback() {
+  return (
+    <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-white/80 backdrop-blur-lg">
+      <div className="container-app flex h-16 items-center justify-between">
+        <Link href="/" className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--primary)]">
+            <Gavel className="h-4.5 w-4.5 text-white" />
+          </div>
+          <span className="text-base font-semibold text-slate-900">E-Lelang</span>
+        </Link>
+      </div>
+    </header>
+  );
+}
+
+function NavbarContent() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
+
+  const companyQuery = searchParams.get("company");
+  const withCompany = (href: string) =>
+    companyQuery ? `${href}?company=${companyQuery}` : href;
 
   useEffect(() => {
     async function load() {
@@ -70,7 +98,7 @@ export function Navbar() {
               <Menu className="h-5 w-5" />
             </button>
 
-            <Link href="/" className="flex items-center gap-2.5">
+            <Link href={withCompany("/")} className="flex items-center gap-2.5">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--primary)]">
                 <Gavel className="h-4.5 w-4.5 text-white" />
               </div>
@@ -81,7 +109,7 @@ export function Navbar() {
               {links.map(({ href, label }) => (
                 <Link
                   key={href}
-                  href={href}
+                  href={withCompany(href)}
                   className={cn(
                     "text-sm font-medium transition-colors",
                     pathname === href
@@ -116,6 +144,7 @@ export function Navbar() {
         open={mobileOpen}
         onClose={() => setMobileOpen(false)}
         profile={profile}
+        companyCode={companyQuery}
       />
     </>
   );

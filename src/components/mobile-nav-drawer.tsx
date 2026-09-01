@@ -33,14 +33,19 @@ export function MobileNavDrawer({
   open,
   onClose,
   profile,
+  companyCode,
 }: {
   open: boolean;
   onClose: () => void;
   profile: Profile | null;
+  companyCode?: string | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+
+  const withCompany = (href: string) =>
+    companyCode ? `${href}?company=${companyCode}` : href;
 
   const isStaff = isStaffRole(profile?.role);
   const isBidder = profile?.role === "bidder";
@@ -100,7 +105,7 @@ export function MobileNavDrawer({
           {publicLinks.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
-              href={href}
+              href={withCompany(href)}
               onClick={onClose}
               className={cn(
                 "mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",

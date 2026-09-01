@@ -5,8 +5,21 @@ import { Badge } from "@/components/ui/badge";
 import { Package, Gavel, Calendar, Users } from "lucide-react";
 
 export default async function AdminDashboard() {
-  await requireStaff();
+  const profile = await requireStaff();
   const supabase = await createClient();
+  const companyId = profile.company_id;
+
+  const { data: companyPeriods } = await supabase
+    .from("auction_periods")
+    .select("id")
+    .eq("company_id", companyId);
+  const periodIds = (companyPeriods ?? []).map((period) => period.id);
+
+  const { data: companyBidders } = await supabase
+    .from("bidder_profiles")
+    .select("id")
+    .eq("company_id", companyId);
+  const bidderIds = (companyBidders ?? []).map((bidder) => bidder.id);
 
   const [
     { count: itemCount },
@@ -15,13 +28,30 @@ export default async function AdminDashboard() {
     { count: bidderCount },
     { data: activePeriod },
   ] = await Promise.all([
-    supabase.from("auction_items").select("*", { count: "exact", head: true }),
-    supabase.from("bids").select("*", { count: "exact", head: true }),
-    supabase.from("auction_periods").select("*", { count: "exact", head: true }),
-    supabase.from("bidder_profiles").select("*", { count: "exact", head: true }),
+    periodIds.length
+      ? supabase
+          .from("auction_items")
+          .select("*", { count: "exact", head: true })
+          .in("period_id", periodIds)
+      : Promise.resolve({ count: 0 }),
+    bidderIds.length
+      ? supabase
+          .from("bids")
+          .select("*", { count: "exact", head: true })
+          .in("bidder_id", bidderIds)
+      : Promise.resolve({ count: 0 }),
+    supabase
+      .from("auction_periods")
+      .select("*", { count: "exact", head: true })
+      .eq("company_id", companyId),
+    supabase
+      .from("bidder_profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("company_id", companyId),
     supabase
       .from("auction_periods")
       .select("*")
+      .eq("company_id", companyId)
       .eq("status", "active")
       .maybeSingle(),
   ]);
@@ -37,7 +67,7 @@ export default async function AdminDashboard() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-        <p className="text-slate-500">Ringkasan platform lelang</p>
+        <p className="text-slate-500">Ringkasan platform lelang perusahaan Anda</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

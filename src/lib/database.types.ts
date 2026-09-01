@@ -13,6 +13,7 @@ export type Database = {
         Row: {
           account_holder: string;
           account_number: string;
+          company_id: string;
           created_at: string;
           created_by: string | null;
           id: string;
@@ -24,6 +25,7 @@ export type Database = {
         Insert: {
           account_holder: string;
           account_number: string;
+          company_id: string;
           created_at?: string;
           created_by?: string | null;
           id?: string;
@@ -35,6 +37,7 @@ export type Database = {
         Update: {
           account_holder?: string;
           account_number?: string;
+          company_id?: string;
           created_at?: string;
           created_by?: string | null;
           id?: string;
@@ -102,6 +105,7 @@ export type Database = {
       auction_periods: {
         Row: {
           code: string;
+          company_id: string;
           created_at: string;
           created_by: string | null;
           description: string | null;
@@ -116,6 +120,7 @@ export type Database = {
         };
         Insert: {
           code: string;
+          company_id: string;
           created_at?: string;
           created_by?: string | null;
           description?: string | null;
@@ -130,6 +135,7 @@ export type Database = {
         };
         Update: {
           code?: string;
+          company_id?: string;
           created_at?: string;
           created_by?: string | null;
           description?: string | null;
@@ -180,6 +186,7 @@ export type Database = {
       bidder_profiles: {
         Row: {
           auth_user_id: string | null;
+          company_id: string;
           created_at: string;
           employee_nik: string;
           full_name: string;
@@ -191,6 +198,7 @@ export type Database = {
         };
         Insert: {
           auth_user_id?: string | null;
+          company_id: string;
           created_at?: string;
           employee_nik: string;
           full_name: string;
@@ -202,6 +210,7 @@ export type Database = {
         };
         Update: {
           auth_user_id?: string | null;
+          company_id?: string;
           created_at?: string;
           employee_nik?: string;
           full_name?: string;
@@ -267,8 +276,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      companies: {
+        Row: {
+          code: string;
+          created_at: string;
+          id: string;
+          name: string;
+          short_name: string;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          id?: string;
+          name: string;
+          short_name: string;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          id?: string;
+          name?: string;
+          short_name?: string;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
+          company_id: string;
           created_at: string;
           employee_nik: string | null;
           full_name: string;
@@ -279,6 +313,7 @@ export type Database = {
           username: string;
         };
         Insert: {
+          company_id: string;
           created_at?: string;
           employee_nik?: string | null;
           full_name: string;
@@ -289,6 +324,7 @@ export type Database = {
           username: string;
         };
         Update: {
+          company_id?: string;
           created_at?: string;
           employee_nik?: string | null;
           full_name?: string;
@@ -423,6 +459,7 @@ export type Database = {
   };
 };
 
+export type Company = Database["public"]["Tables"]["companies"]["Row"];
 export type AuctionBankAccount = Database["public"]["Tables"]["auction_bank_accounts"]["Row"];
 export type AuctionItem = Database["public"]["Tables"]["auction_items"]["Row"];
 export type AuctionPeriod = Database["public"]["Tables"]["auction_periods"]["Row"];

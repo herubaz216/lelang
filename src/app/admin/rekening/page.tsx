@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Landmark } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAdminCompanyId } from "@/components/admin/admin-company-context";
 
 const emptyForm = {
   account_number: "",
@@ -158,6 +159,7 @@ export default function RekeningPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AuctionBankAccount | null>(null);
   const supabase = createClient();
+  const companyId = useAdminCompanyId();
 
   const isFormOpen = addingNew || editingId !== null;
 
@@ -165,13 +167,14 @@ export default function RekeningPage() {
     const { data } = await supabase
       .from("auction_bank_accounts")
       .select("*")
+      .eq("company_id", companyId)
       .order("created_at", { ascending: true });
     setAccounts(data ?? []);
   }
 
   useEffect(() => {
     load();
-  }, []);
+  }, [companyId]);
 
   function startAdd() {
     setEditingId(null);
@@ -205,10 +208,16 @@ export default function RekeningPage() {
       account_holder: form.account_holder.trim(),
       notes: form.notes.trim() || null,
       is_active: form.is_active,
+      company_id: companyId,
     };
 
     const { error } = editingId
-      ? await supabase.from("auction_bank_accounts").update(payload).eq("id", editingId)
+      ? await supabase.from("auction_bank_accounts").update({
+          account_number: payload.account_number,
+          account_holder: payload.account_holder,
+          notes: payload.notes,
+          is_active: payload.is_active,
+        }).eq("id", editingId)
       : await supabase.from("auction_bank_accounts").insert(payload);
 
     setLoading(false);

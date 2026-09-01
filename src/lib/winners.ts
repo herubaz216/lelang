@@ -14,17 +14,23 @@ export type WinnerRow = {
   periodTitle: string;
 };
 
-export async function fetchFinishedPeriods(): Promise<AuctionPeriod[]> {
+export async function fetchFinishedPeriods(
+  companyId: string
+): Promise<AuctionPeriod[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("auction_periods")
     .select("*")
+    .eq("company_id", companyId)
     .in("status", ["finished", "cancelled"])
     .order("end_at", { ascending: false });
   return data ?? [];
 }
 
-export async function fetchWinners(periodId?: string): Promise<{
+export async function fetchWinners(
+  companyId: string,
+  periodId?: string
+): Promise<{
   period: AuctionPeriod | null;
   rows: WinnerRow[];
 }> {
@@ -37,12 +43,14 @@ export async function fetchWinners(periodId?: string): Promise<{
       .from("auction_periods")
       .select("*")
       .eq("id", periodId)
+      .eq("company_id", companyId)
       .maybeSingle();
     period = data;
   } else {
     const { data } = await supabase
       .from("auction_periods")
       .select("*")
+      .eq("company_id", companyId)
       .eq("status", "finished")
       .order("end_at", { ascending: false })
       .limit(1)

@@ -71,7 +71,7 @@ export async function sendWinnerEmailsForPeriod(
 
   const { data: period, error: periodError } = await admin
     .from("auction_periods")
-    .select("id, code, title, status, winner_emails_sent_at")
+    .select("id, code, title, status, winner_emails_sent_at, company_id")
     .eq("id", periodId)
     .maybeSingle();
 
@@ -110,6 +110,7 @@ export async function sendWinnerEmailsForPeriod(
   const { data: bankAccounts } = await admin
     .from("auction_bank_accounts")
     .select("*")
+    .eq("company_id", period.company_id)
     .eq("is_active", true)
     .order("created_at", { ascending: true });
 

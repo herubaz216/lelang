@@ -2,8 +2,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { CompanySwitcher } from "@/components/home/company-switcher";
 import { fetchFinishedPeriods, fetchWinners } from "@/lib/winners";
 import { fetchActiveBankAccounts } from "@/lib/bank-accounts";
+import {
+  fetchCompanies,
+  fetchCompanyByCode,
+  resolveCompanyCode,
+} from "@/lib/companies";
 import { formatRupiah, getPhotoUrl } from "@/lib/format";
 import { StripedHeroBackground } from "@/components/striped-hero-background";
 import { Trophy, Package, ChevronRight, Landmark } from "lucide-react";
@@ -11,17 +17,41 @@ import { Trophy, Package, ChevronRight, Landmark } from "lucide-react";
 export default async function HasilPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string }>;
+  searchParams: Promise<{ period?: string; company?: string }>;
 }) {
-  const { period: periodId } = await searchParams;
-  const periods = await fetchFinishedPeriods();
-  const { period, rows } = await fetchWinners(periodId);
+  const { period: periodId, company: companyParam } = await searchParams;
+  const companies = await fetchCompanies();
+  const companyCode = resolveCompanyCode(companyParam, companies);
+  const company =
+    (await fetchCompanyByCode(companyCode)) ?? companies[0] ?? null;
+
+  if (!company) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Navbar />
+        <main className="container-app flex flex-1 items-center justify-center py-20 text-slate-500">
+          Perusahaan belum dikonfigurasi.
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  const periods = await fetchFinishedPeriods(company.id);
+  const { period, rows } = await fetchWinners(company.id, periodId);
   const bankAccounts =
-    period?.status === "finished" ? await fetchActiveBankAccounts() : [];
+    period?.status === "finished"
+      ? await fetchActiveBankAccounts(company.id)
+      : [];
 
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
+      <CompanySwitcher
+        companies={companies}
+        activeCompany={company}
+        basePath="/hasil"
+      />
       <main className="flex-1">
         <section className="relative overflow-hidden border-b border-[var(--border)] bg-white">
           <StripedHeroBackground />
@@ -45,7 +75,7 @@ export default async function HasilPage({
                 {periods.map((p) => (
                   <Link
                     key={p.id}
-                    href={`/hasil?period=${p.id}`}
+                    href={`/hasil?company=${company.code}&period=${p.id}`}
                     className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                       period?.id === p.id
                         ? "bg-[var(--primary)] text-white"

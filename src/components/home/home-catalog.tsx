@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AuctionPeriod } from "@/lib/database.types";
+import { AuctionPeriod, Company } from "@/lib/database.types";
+import { withCompanyQuery } from "@/lib/company-utils";
 import { ItemWithPhotos } from "@/lib/items";
 import {
   getPeriodStatusLabel,
@@ -20,12 +21,14 @@ const PAGE_SIZE = 12;
 type CategoryInfo = { name: string; count: number };
 
 export function HomeCatalog({
+  company,
   period,
   categories,
   initialItems,
   initialHasMore,
   totalItems,
 }: {
+  company: Company;
   period: AuctionPeriod | null;
   categories: CategoryInfo[];
   initialItems: ItemWithPhotos[];
@@ -107,15 +110,15 @@ export function HomeCatalog({
           <div className="max-w-2xl">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-sm font-medium text-indigo-700">
               <Gavel className="h-4 w-4" />
-              Platform Lelang Internal
+              {company.short_name} — Platform Lelang Internal
             </div>
             <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-[3.25rem] lg:leading-[1.15]">
               Lelang aset operasional{" "}
-              <span className="text-[var(--primary)]">perusahaan</span>
+              <span className="text-[var(--primary)]">{company.short_name}</span>
             </h1>
             <p className="mt-5 text-lg leading-relaxed text-slate-500">
-              Temukan barang lelang, ajukan penawaran real-time, dan menangkan
-              aset terbaik untuk kebutuhan Anda.
+              {company.name}. Temukan barang lelang, ajukan penawaran real-time,
+              dan menangkan aset terbaik untuk kebutuhan Anda.
             </p>
           </div>
 
@@ -189,7 +192,7 @@ export function HomeCatalog({
                     </div>
                   </div>
                   <Link
-                    href={`/hasil?period=${period.id}`}
+                    href={withCompanyQuery(`/hasil?period=${period.id}`, company.code)}
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-5 py-4 text-sm font-semibold text-slate-900 transition-colors hover:bg-amber-300"
                   >
                     <Trophy className="h-5 w-5" />

@@ -1,5 +1,32 @@
 import nodemailer from "nodemailer";
 import { formatRupiah } from "@/lib/format";
+import { getBrevoConfig, sendBrevoEmail } from "@/lib/brevo";
+
+type EmailPayload = {
+  to: string;
+  toName?: string;
+  subject: string;
+  html: string;
+  text: string;
+};
+
+async function sendEmail(payload: EmailPayload) {
+  const brevo = getBrevoConfig();
+  if (brevo) {
+    await sendBrevoEmail(payload);
+    return;
+  }
+
+  const { from, fromName } = getSmtpConfig();
+  const transporter = createTransporter();
+  await transporter.sendMail({
+    from: `"${fromName}" <${from}>`,
+    to: payload.to,
+    subject: payload.subject,
+    html: payload.html,
+    text: payload.text,
+  });
+}
 
 function escapeHtml(value: string) {
   return value
@@ -94,12 +121,9 @@ export async function sendRegistrationOtpEmail(
   fullName: string,
   otp: string
 ) {
-  const { from, fromName } = getSmtpConfig();
-  const transporter = createTransporter();
-
-  await transporter.sendMail({
-    from: `"${fromName}" <${from}>`,
+  await sendEmail({
     to,
+    toName: fullName,
     subject: "Kode OTP Pendaftaran E-Lelang",
     html: buildOtpEmailHtml(fullName, otp),
     text: `Halo ${fullName},\n\nKode OTP pendaftaran E-Lelang Anda: ${otp}\n\nKode berlaku 10 menit. Jangan bagikan kepada siapa pun.`,
@@ -246,9 +270,6 @@ export async function sendWinnerNotificationEmail({
   totalAmount: number;
   bankAccounts: WinnerBankAccount[];
 }) {
-  const { from, fromName } = getSmtpConfig();
-  const transporter = createTransporter();
-
   const itemLines = items
     .map(
       (item) =>
@@ -266,9 +287,9 @@ export async function sendWinnerNotificationEmail({
           .join("\n")
       : "Informasi rekening akan diinformasikan lebih lanjut.";
 
-  await transporter.sendMail({
-    from: `"${fromName}" <${from}>`,
+  await sendEmail({
     to,
+    toName: recipientName,
     subject: `Selamat! Anda Memenangkan Lelang ${periodCode}`,
     html: buildWinnerEmailHtml({
       recipientName,

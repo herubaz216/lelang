@@ -8,6 +8,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BidderBidsPanel } from "@/components/admin/bidder-bids-panel";
+import { useAdminCompanyId } from "@/components/admin/admin-company-context";
 import { toast } from "sonner";
 import { Plus, Users, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -103,11 +104,24 @@ export default function BiddersMasterDetailPage() {
   const [mobileView, setMobileView] = useState<MobileView>("list");
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
+  const companyId = useAdminCompanyId();
 
   const selectedBidder = bidders.find((bidder) => bidder.id === selectedId) ?? null;
 
   async function loadBidCounts() {
-    const { data } = await supabase.from("bids").select("bidder_id");
+    const { data: bidders } = await supabase
+      .from("bidder_profiles")
+      .select("id")
+      .eq("company_id", companyId);
+    const bidderIds = (bidders ?? []).map((bidder) => bidder.id);
+    if (bidderIds.length === 0) {
+      setBidCountByBidder({});
+      return;
+    }
+    const { data } = await supabase
+      .from("bids")
+      .select("bidder_id")
+      .in("bidder_id", bidderIds);
     const counts: Record<string, number> = {};
     for (const row of data ?? []) {
       counts[row.bidder_id] = (counts[row.bidder_id] ?? 0) + 1;
@@ -119,6 +133,7 @@ export default function BiddersMasterDetailPage() {
     const { data } = await supabase
       .from("bidder_profiles")
       .select("id, employee_nik, full_name, public_alias, is_active, created_at, updated_at, auth_user_id")
+      .eq("company_id", companyId)
       .order("created_at", { ascending: false });
     const list = (data ?? []) as BidderProfile[];
     setBidders(list);
@@ -130,7 +145,7 @@ export default function BiddersMasterDetailPage() {
 
   useEffect(() => {
     loadBidders();
-  }, []);
+  }, [companyId]);
 
   function startAddBidder() {
     setForm(emptyForm);

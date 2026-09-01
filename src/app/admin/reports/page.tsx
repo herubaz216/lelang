@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
+import { useAdminCompanyId } from "@/components/admin/admin-company-context";
 
 type BidReport = {
   id: string;
@@ -28,16 +29,26 @@ export default function ReportsPage() {
   const [bids, setBids] = useState<BidReport[]>([]);
   const [audits, setAudits] = useState<AuditEntry[]>([]);
   const supabase = createClient();
+  const companyId = useAdminCompanyId();
 
   useEffect(() => {
     async function load() {
+      const { data: bidders } = await supabase
+        .from("bidder_profiles")
+        .select("id")
+        .eq("company_id", companyId);
+      const bidderIds = (bidders ?? []).map((bidder) => bidder.id);
+
       const [{ data: bidsData }, { data: auditsData }] = await Promise.all([
-        supabase
-          .from("bids")
-          .select(
-            "id, amount, status, created_at, auction_items(lot_number, item_name), bidder_profiles(public_alias, full_name)"
-          )
-          .order("created_at", { ascending: false }),
+        bidderIds.length
+          ? supabase
+              .from("bids")
+              .select(
+                "id, amount, status, created_at, auction_items(lot_number, item_name), bidder_profiles(public_alias, full_name)"
+              )
+              .in("bidder_id", bidderIds)
+              .order("created_at", { ascending: false })
+          : Promise.resolve({ data: [] }),
         supabase
           .from("audit_logs")
           .select("id, action, table_name, created_at")
@@ -48,7 +59,7 @@ export default function ReportsPage() {
       setAudits(auditsData ?? []);
     }
     load();
-  }, []);
+  }, [companyId]);
 
   function exportCsv() {
     const header = "Lot,Barang,Bidder,Alias,Nominal,Status,Waktu\n";

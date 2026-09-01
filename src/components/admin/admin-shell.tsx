@@ -9,9 +9,11 @@ const STORAGE_KEY = "admin-sidebar-collapsed";
 
 export function AdminShell({
   profile,
+  companyName,
   children,
 }: {
   profile: Profile;
+  companyName: string;
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -87,7 +89,10 @@ export function AdminShell({
           </button>
 
           <span className="text-sm font-medium text-slate-700 lg:hidden">
-            Admin Panel
+            Admin Panel — {companyName}
+          </span>
+          <span className="hidden text-sm font-medium text-slate-500 lg:inline">
+            {companyName}
           </span>
         </header>
 

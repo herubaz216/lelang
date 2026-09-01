@@ -13,6 +13,7 @@ import { PeriodWinnerEmailBar } from "@/components/admin/period-winner-email-bar
 import { toast } from "sonner";
 import { Plus, Pencil, Calendar, ArrowLeft, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useAdminCompanyId } from "@/components/admin/admin-company-context";
 import { cn } from "@/lib/utils";
 
 const emptyPeriodForm = {
@@ -120,11 +121,24 @@ export default function PeriodsMasterDetailPage() {
   const [deletingPeriod, setDeletingPeriod] = useState(false);
   const [deletePeriodTarget, setDeletePeriodTarget] = useState<AuctionPeriod | null>(null);
   const supabase = createClient();
+  const companyId = useAdminCompanyId();
 
   const selectedPeriod = periods.find((p) => p.id === selectedId) ?? null;
 
   async function loadItemCounts() {
-    const { data } = await supabase.from("auction_items").select("period_id");
+    const { data: periods } = await supabase
+      .from("auction_periods")
+      .select("id")
+      .eq("company_id", companyId);
+    const periodIds = (periods ?? []).map((period) => period.id);
+    if (periodIds.length === 0) {
+      setItemCountByPeriod({});
+      return;
+    }
+    const { data } = await supabase
+      .from("auction_items")
+      .select("period_id")
+      .in("period_id", periodIds);
     const counts: Record<string, number> = {};
     for (const row of data ?? []) {
       counts[row.period_id] = (counts[row.period_id] ?? 0) + 1;
@@ -136,6 +150,7 @@ export default function PeriodsMasterDetailPage() {
     const { data } = await supabase
       .from("auction_periods")
       .select("*")
+      .eq("company_id", companyId)
       .order("created_at", { ascending: false });
     const list = data ?? [];
     setPeriods(list);
@@ -147,7 +162,7 @@ export default function PeriodsMasterDetailPage() {
 
   useEffect(() => {
     loadPeriods();
-  }, []);
+  }, [companyId]);
 
   function toLocalDatetime(iso: string) {
     if (!iso) return "";
@@ -218,6 +233,7 @@ export default function PeriodsMasterDetailPage() {
       start_at: new Date(form.start_at).toISOString(),
       end_at: new Date(form.end_at).toISOString(),
       status: form.status,
+      company_id: companyId,
     };
 
     const { data, error } = editingId
