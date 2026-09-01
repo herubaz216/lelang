@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchEmployeeByNik } from "@/lib/employee-api";
+import { isEmployeeNikRegistered } from "@/lib/employee-registration";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -21,6 +22,17 @@ export async function GET(request: Request) {
     return NextResponse.json(
       { error: result.error },
       { status: result.status ?? 404 }
+    );
+  }
+
+  const alreadyRegistered = await isEmployeeNikRegistered(result.nomorInduk);
+  if (alreadyRegistered) {
+    return NextResponse.json(
+      {
+        error: "NIK sudah terdaftar di E-Lelang. Silakan login.",
+        alreadyRegistered: true,
+      },
+      { status: 409 }
     );
   }
 

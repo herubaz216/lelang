@@ -8,16 +8,17 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, Loader2, Mail, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, Mail, ShieldCheck, XCircle } from "lucide-react";
 
 type Step = "form" | "otp";
-type NikStatus = "idle" | "loading" | "verified" | "error";
+type NikStatus = "idle" | "loading" | "verified" | "error" | "taken";
 
 export default function DaftarForm() {
   const [step, setStep] = useState<Step>("form");
   const [employeeNik, setEmployeeNik] = useState("");
   const [fullName, setFullName] = useState("");
   const [nikStatus, setNikStatus] = useState<NikStatus>("idle");
+  const [nikMessage, setNikMessage] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
@@ -32,6 +33,7 @@ export default function DaftarForm() {
     if (!nik) {
       setFullName("");
       setNikStatus("idle");
+      setNikMessage("");
       return;
     }
 
@@ -39,6 +41,7 @@ export default function DaftarForm() {
     const timer = window.setTimeout(async () => {
       setNikStatus("loading");
       setFullName("");
+      setNikMessage("");
 
       try {
         const res = await fetch(
@@ -48,17 +51,28 @@ export default function DaftarForm() {
 
         if (requestId !== lookupRequestId.current) return;
 
+        if (res.status === 409 || data.alreadyRegistered) {
+          setNikStatus("taken");
+          setNikMessage(
+            data.error ?? "NIK sudah terdaftar di E-Lelang. Silakan login."
+          );
+          return;
+        }
+
         if (!res.ok) {
           setNikStatus("error");
+          setNikMessage(data.error ?? "NIK tidak ditemukan");
           toast.error(data.error ?? "NIK tidak ditemukan");
           return;
         }
 
         setFullName(data.fullName ?? "");
         setNikStatus("verified");
+        setNikMessage("");
       } catch {
         if (requestId !== lookupRequestId.current) return;
         setNikStatus("error");
+        setNikMessage("Gagal memverifikasi NIK karyawan");
         toast.error("Gagal memverifikasi NIK karyawan");
       }
     }, 500);
@@ -70,6 +84,7 @@ export default function DaftarForm() {
     setEmployeeNik(value);
     if (nikStatus !== "idle") {
       setNikStatus("idle");
+      setNikMessage("");
       setFullName("");
     }
   }
@@ -204,6 +219,26 @@ export default function DaftarForm() {
                   <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     NIK terverifikasi
+                  </p>
+                )}
+                {nikStatus === "taken" && (
+                  <p className="flex items-start gap-1.5 text-xs font-medium text-red-600">
+                    <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      {nikMessage}{" "}
+                      <Link
+                        href={`/login?redirect=${encodeURIComponent(redirect)}`}
+                        className="font-semibold underline"
+                      >
+                        Login di sini
+                      </Link>
+                    </span>
+                  </p>
+                )}
+                {nikStatus === "error" && nikMessage && (
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-red-600">
+                    <XCircle className="h-3.5 w-3.5" />
+                    {nikMessage}
                   </p>
                 )}
               </div>

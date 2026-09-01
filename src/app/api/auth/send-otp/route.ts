@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendRegistrationOtpEmail } from "@/lib/email";
 import { fetchEmployeeByNik } from "@/lib/employee-api";
+import { isEmployeeNikRegistered } from "@/lib/employee-registration";
 import {
   canResendOtp,
   generateOtpCode,
@@ -47,6 +48,13 @@ export async function POST(request: Request) {
 
     const verifiedNik = employee.nomorInduk;
 
+    if (await isEmployeeNikRegistered(verifiedNik)) {
+      return NextResponse.json(
+        { error: "NIK sudah terdaftar di E-Lelang. Silakan login." },
+        { status: 409 }
+      );
+    }
+
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: "Format email tidak valid" }, { status: 400 });
     }
@@ -60,19 +68,6 @@ export async function POST(request: Request) {
     if (emailTaken) {
       return NextResponse.json(
         { error: "Email sudah terdaftar" },
-        { status: 409 }
-      );
-    }
-
-    const { data: existingProfile } = await admin
-      .from("profiles")
-      .select("id")
-      .eq("employee_nik", verifiedNik)
-      .maybeSingle();
-
-    if (existingProfile) {
-      return NextResponse.json(
-        { error: "NIK sudah terdaftar" },
         { status: 409 }
       );
     }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isEmployeeNikRegistered } from "@/lib/employee-registration";
 import { hashOtp, isOtpExpired, otpConfig } from "@/lib/otp";
 
 type RegisterBody = {
@@ -94,15 +95,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Kode OTP salah" }, { status: 400 });
     }
 
-    const { data: existingProfile } = await admin
-      .from("profiles")
-      .select("id")
-      .eq("employee_nik", employeeNik)
-      .maybeSingle();
-
-    if (existingProfile) {
+    if (await isEmployeeNikRegistered(employeeNik)) {
       return NextResponse.json(
-        { error: "NIK sudah terdaftar" },
+        { error: "NIK sudah terdaftar di E-Lelang. Silakan login." },
         { status: 409 }
       );
     }
