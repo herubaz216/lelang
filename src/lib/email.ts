@@ -1,4 +1,13 @@
 import nodemailer from "nodemailer";
+import { formatRupiah } from "@/lib/format";
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 function getSmtpConfig() {
   const host = process.env.SMTP_HOST;
@@ -94,5 +103,181 @@ export async function sendRegistrationOtpEmail(
     subject: "Kode OTP Pendaftaran E-Lelang",
     html: buildOtpEmailHtml(fullName, otp),
     text: `Halo ${fullName},\n\nKode OTP pendaftaran E-Lelang Anda: ${otp}\n\nKode berlaku 10 menit. Jangan bagikan kepada siapa pun.`,
+  });
+}
+
+type WinnerEmailItem = {
+  lotNumber: string;
+  itemName: string;
+  price: number;
+};
+
+type WinnerBankAccount = {
+  accountNumber: string;
+  accountHolder: string;
+  notes: string | null;
+};
+
+function buildWinnerEmailHtml({
+  recipientName,
+  periodCode,
+  periodTitle,
+  items,
+  totalAmount,
+  bankAccounts,
+}: {
+  recipientName: string;
+  periodCode: string;
+  periodTitle: string;
+  items: WinnerEmailItem[];
+  totalAmount: number;
+  bankAccounts: WinnerBankAccount[];
+}) {
+  const itemRows = items
+    .map(
+      (item) => `
+        <tr>
+          <td style="padding:12px 14px;border-bottom:1px solid #e2e8f0;font-family:monospace;font-size:13px;color:#4f46e5;">${escapeHtml(item.lotNumber)}</td>
+          <td style="padding:12px 14px;border-bottom:1px solid #e2e8f0;font-size:14px;color:#0f172a;">${escapeHtml(item.itemName)}</td>
+          <td style="padding:12px 14px;border-bottom:1px solid #e2e8f0;font-size:14px;color:#0f172a;text-align:right;white-space:nowrap;">${escapeHtml(formatRupiah(item.price))}</td>
+        </tr>`
+    )
+    .join("");
+
+  const bankBlocks =
+    bankAccounts.length > 0
+      ? bankAccounts
+          .map(
+            (account) => `
+              <div style="margin-top:12px;padding:14px 16px;border:1px solid #bbf7d0;border-radius:12px;background:#f0fdf4;">
+                <p style="margin:0;font-family:monospace;font-size:16px;font-weight:700;color:#14532d;">${escapeHtml(account.accountNumber)}</p>
+                <p style="margin:6px 0 0;font-size:14px;color:#166534;">a.n. ${escapeHtml(account.accountHolder)}</p>
+                ${account.notes ? `<p style="margin:6px 0 0;font-size:13px;color:#4b5563;">${escapeHtml(account.notes)}</p>` : ""}
+              </div>`
+          )
+          .join("")
+      : `<p style="margin:0;font-size:14px;color:#64748b;">Informasi rekening pembayaran akan diinformasikan lebih lanjut.</p>`;
+
+  return `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Selamat! Anda Memenangkan Lelang</title>
+</head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
+          <tr>
+            <td style="background:#4f46e5;padding:24px 28px;">
+              <p style="margin:0;font-size:13px;color:#c7d2fe;letter-spacing:0.08em;text-transform:uppercase;">E-Lelang</p>
+              <h1 style="margin:8px 0 0;font-size:22px;line-height:1.3;color:#ffffff;">Selamat, Anda Memenangkan Lelang!</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px;">
+              <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#334155;">
+                Halo <strong>${escapeHtml(recipientName)}</strong>,
+              </p>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#334155;">
+                Lelang periode <strong>${escapeHtml(periodCode)}</strong> — ${escapeHtml(periodTitle)} telah ditutup.
+                Berikut barang yang Anda menangkan:
+              </p>
+
+              <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+                <thead>
+                  <tr style="background:#f8fafc;">
+                    <th align="left" style="padding:12px 14px;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;">Lot</th>
+                    <th align="left" style="padding:12px 14px;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;">Barang</th>
+                    <th align="right" style="padding:12px 14px;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;">Harga</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemRows}
+                </tbody>
+                <tfoot>
+                  <tr style="background:#f8fafc;">
+                    <td colspan="2" style="padding:14px;font-size:14px;font-weight:700;color:#0f172a;">Total Pembayaran</td>
+                    <td style="padding:14px;font-size:16px;font-weight:700;color:#047857;text-align:right;white-space:nowrap;">${escapeHtml(formatRupiah(totalAmount))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+
+              <div style="margin-top:28px;padding-top:24px;border-top:1px solid #e2e8f0;">
+                <h2 style="margin:0 0 8px;font-size:16px;color:#0f172a;">Informasi Pembayaran</h2>
+                <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#475569;">
+                  Silakan transfer sesuai total di atas ke rekening berikut:
+                </p>
+                ${bankBlocks}
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+              <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">
+                Email otomatis dari E-Lelang &bull; AMS Group
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+export async function sendWinnerNotificationEmail({
+  to,
+  recipientName,
+  periodCode,
+  periodTitle,
+  items,
+  totalAmount,
+  bankAccounts,
+}: {
+  to: string;
+  recipientName: string;
+  periodCode: string;
+  periodTitle: string;
+  items: WinnerEmailItem[];
+  totalAmount: number;
+  bankAccounts: WinnerBankAccount[];
+}) {
+  const { from, fromName } = getSmtpConfig();
+  const transporter = createTransporter();
+
+  const itemLines = items
+    .map(
+      (item) =>
+        `- ${item.lotNumber} | ${item.itemName} | ${formatRupiah(item.price)}`
+    )
+    .join("\n");
+
+  const bankLines =
+    bankAccounts.length > 0
+      ? bankAccounts
+          .map(
+            (account) =>
+              `${account.accountNumber} a.n. ${account.accountHolder}${account.notes ? ` (${account.notes})` : ""}`
+          )
+          .join("\n")
+      : "Informasi rekening akan diinformasikan lebih lanjut.";
+
+  await transporter.sendMail({
+    from: `"${fromName}" <${from}>`,
+    to,
+    subject: `Selamat! Anda Memenangkan Lelang ${periodCode}`,
+    html: buildWinnerEmailHtml({
+      recipientName,
+      periodCode,
+      periodTitle,
+      items,
+      totalAmount,
+      bankAccounts,
+    }),
+    text: `Halo ${recipientName},\n\nLelang periode ${periodCode} — ${periodTitle} telah ditutup.\n\nBarang yang Anda menangkan:\n${itemLines}\n\nTotal pembayaran: ${formatRupiah(totalAmount)}\n\nSilakan transfer ke:\n${bankLines}`,
   });
 }

@@ -156,7 +156,7 @@ export default async function HasilPage({
                                   📦
                                 </div>
                               )}
-                              {index < 3 && (row.winnerName || row.winnerAlias) && (
+                              {index < 3 && row.winnerAlias && (
                                 <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-white">
                                   {index + 1}
                                 </span>
@@ -174,19 +174,8 @@ export default async function HasilPage({
                               {formatRupiah(row.startingPrice)}
                             </p>
                             <div className="min-w-0">
-                              {row.winnerName ? (
-                                <>
-                                  <p className="truncate text-sm font-semibold text-slate-900">
-                                    {row.winnerName}
-                                  </p>
-                                  {row.winnerAlias && (
-                                    <p className="truncate text-xs text-slate-500">
-                                      {row.winnerAlias}
-                                    </p>
-                                  )}
-                                </>
-                              ) : row.winnerAlias ? (
-                                <p className="truncate text-sm font-medium text-slate-800">
+                              {row.winnerAlias ? (
+                                <p className="truncate text-sm font-semibold text-slate-900">
                                   {row.winnerAlias}
                                 </p>
                               ) : (
@@ -242,20 +231,9 @@ export default async function HasilPage({
                                 </div>
                                 <div className="col-span-2">
                                   <p className="text-slate-400">Pemenang</p>
-                                  {row.winnerName ? (
-                                    <>
-                                      <p className="font-semibold text-slate-900">
-                                        {row.winnerName}
-                                      </p>
-                                      {row.winnerAlias && (
-                                        <p className="text-slate-500">{row.winnerAlias}</p>
-                                      )}
-                                    </>
-                                  ) : (
-                                    <p className="font-medium text-slate-800">
-                                      {row.winnerAlias ?? "—"}
-                                    </p>
-                                  )}
+                                  <p className="font-semibold text-slate-900">
+                                    {row.winnerAlias ?? "—"}
+                                  </p>
                                 </div>
                               </div>
                             </div>

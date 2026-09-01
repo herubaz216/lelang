@@ -112,6 +112,7 @@ export type Database = {
           title: string;
           updated_at: string;
           updated_by: string | null;
+          winner_emails_sent_at: string | null;
         };
         Insert: {
           code: string;
@@ -125,6 +126,7 @@ export type Database = {
           title: string;
           updated_at?: string;
           updated_by?: string | null;
+          winner_emails_sent_at?: string | null;
         };
         Update: {
           code?: string;
@@ -138,6 +140,7 @@ export type Database = {
           title?: string;
           updated_at?: string;
           updated_by?: string | null;
+          winner_emails_sent_at?: string | null;
         };
         Relationships: [];
       };
@@ -334,6 +337,19 @@ export type Database = {
     Views: Record<string, never>;
     Functions: {
       current_user_role: { Args: Record<string, never>; Returns: string };
+      get_period_winner_notifications: {
+        Args: { p_period_id: string };
+        Returns: {
+          bidder_id: string;
+          bidder_email: string | null;
+          bidder_name: string;
+          public_alias: string;
+          item_id: string;
+          lot_number: string;
+          item_name: string;
+          last_price: number;
+        }[];
+      };
       get_period_winners: {
         Args: { p_period_id: string };
         Returns: {

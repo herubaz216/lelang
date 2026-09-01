@@ -9,6 +9,7 @@ import { Input, Label, Textarea, Select } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PeriodItemsPanel } from "@/components/admin/period-items-panel";
+import { PeriodWinnerEmailBar } from "@/components/admin/period-winner-email-bar";
 import { toast } from "sonner";
 import { Plus, Pencil, Calendar, ArrowLeft, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -204,6 +205,12 @@ export default function PeriodsMasterDetailPage() {
     e.preventDefault();
     setLoading(true);
 
+    const previousPeriod = editingId
+      ? periods.find((period) => period.id === editingId) ?? null
+      : null;
+    const becameFinished =
+      form.status === "finished" && previousPeriod?.status !== "finished";
+
     const payload = {
       code: form.code.trim(),
       title: form.title.trim(),
@@ -236,6 +243,25 @@ export default function PeriodsMasterDetailPage() {
     setMobileView("detail");
     await loadPeriods();
     if (data) setSelectedId(data.id);
+
+    if (becameFinished && data) {
+      try {
+        const response = await fetch("/api/admin/send-winner-emails", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ periodId: data.id }),
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          toast.error(result.error ?? "Gagal mengirim email pemenang otomatis");
+        } else if (!result.alreadySent) {
+          toast.success(`Email pemenang dikirim ke ${result.sent} orang`);
+          await loadPeriods();
+        }
+      } catch {
+        toast.error("Periode ditutup, tetapi gagal mengirim email otomatis");
+      }
+    }
   }
 
   function requestDeletePeriod(period: AuctionPeriod) {
@@ -441,11 +467,14 @@ export default function PeriodsMasterDetailPage() {
           {rightPanel === "period-form" ? (
             <div className="overflow-y-auto p-4 sm:p-5">{periodFormContent}</div>
           ) : selectedPeriod ? (
-            <PeriodItemsPanel
-              key={selectedPeriod.id}
-              periodId={selectedPeriod.id}
-              onItemsChange={loadItemCounts}
-            />
+            <div className="flex min-h-0 flex-1 flex-col">
+              <PeriodWinnerEmailBar period={selectedPeriod} onSent={loadPeriods} />
+              <PeriodItemsPanel
+                key={selectedPeriod.id}
+                periodId={selectedPeriod.id}
+                onItemsChange={loadItemCounts}
+              />
+            </div>
           ) : (
             <div className="flex flex-1 items-center justify-center p-6 text-center text-slate-500">
               Pilih periode untuk melihat barang
@@ -484,6 +513,7 @@ export default function PeriodsMasterDetailPage() {
                   </p>
                 </div>
               </div>
+              <PeriodWinnerEmailBar period={selectedPeriod} onSent={loadPeriods} />
               <PeriodItemsPanel
                 key={selectedPeriod.id}
                 periodId={selectedPeriod.id}
