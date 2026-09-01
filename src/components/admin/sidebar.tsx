@@ -11,6 +11,7 @@ import {
   Gavel,
   Landmark,
   Trophy,
+  UserCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -22,22 +23,26 @@ const navItems: {
   label: string;
   icon: typeof LayoutDashboard;
   roles?: UserRole[];
+  amsOnly?: boolean;
 }[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/periods", label: "Periode & Barang", icon: Calendar },
   { href: "/admin/pemenang", label: "Info Pemenang", icon: Trophy },
   { href: "/admin/bidders", label: "Bidder", icon: Users },
+  { href: "/admin/users", label: "Semua User", icon: UserCircle, amsOnly: true },
   { href: "/admin/rekening", label: "Rekening", icon: Landmark, roles: ACCOUNTING_ROLES },
   { href: "/admin/reports", label: "Laporan", icon: FileText },
 ];
 
 export function AdminSidebar({
   profile,
+  companyCode,
   collapsed = false,
   mobileOpen = false,
   onMobileClose,
 }: {
   profile: Profile;
+  companyCode: string;
   collapsed?: boolean;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
@@ -81,7 +86,11 @@ export function AdminSidebar({
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-2">
         {navItems
-          .filter((item) => !item.roles || item.roles.includes(profile.role as UserRole))
+          .filter(
+            (item) =>
+              (!item.roles || item.roles.includes(profile.role as UserRole)) &&
+              (!item.amsOnly || companyCode === "ams")
+          )
           .map(({ href, label, icon: Icon }) => {
           const isActive =
             href === "/admin"

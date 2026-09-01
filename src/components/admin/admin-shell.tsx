@@ -10,10 +10,12 @@ const STORAGE_KEY = "admin-sidebar-collapsed";
 export function AdminShell({
   profile,
   companyName,
+  companyCode,
   children,
 }: {
   profile: Profile;
   companyName: string;
+  companyCode: string;
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -59,6 +61,7 @@ export function AdminShell({
 
       <AdminSidebar
         profile={profile}
+        companyCode={companyCode}
         collapsed={collapsed}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}

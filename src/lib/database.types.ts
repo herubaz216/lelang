@@ -428,6 +428,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      password_reset_otps: {
+        Row: {
+          id: string;
+          employee_nik: string;
+          email: string;
+          otp_hash: string;
+          attempts: number;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          employee_nik: string;
+          email: string;
+          otp_hash: string;
+          attempts?: number;
+          expires_at: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          employee_nik?: string;
+          email?: string;
+          otp_hash?: string;
+          attempts?: number;
+          expires_at?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

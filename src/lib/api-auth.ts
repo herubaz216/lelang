@@ -19,7 +19,7 @@ export async function requireStaffApi(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, full_name")
+    .select("role, full_name, company_id")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -29,5 +29,26 @@ export async function requireStaffApi(
     } as const;
   }
 
-  return { profile, user } as const;
+  return { profile, user, supabase } as const;
+}
+
+export async function requireAmsStaffApi(
+  allowedRoles: UserRole[] = STAFF_ROLES
+) {
+  const auth = await requireStaffApi(allowedRoles);
+  if ("error" in auth) return auth;
+
+  const { data: company } = await auth.supabase
+    .from("companies")
+    .select("code")
+    .eq("id", auth.profile.company_id)
+    .maybeSingle();
+
+  if (company?.code !== "ams") {
+    return {
+      error: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    } as const;
+  }
+
+  return auth;
 }

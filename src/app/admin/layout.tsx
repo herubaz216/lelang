@@ -13,7 +13,11 @@ export default async function AdminLayout({
 
   return (
     <AdminCompanyProvider companyId={profile.company_id}>
-      <AdminShell profile={profile} companyName={company?.short_name ?? "Admin"}>
+      <AdminShell
+        profile={profile}
+        companyName={company?.short_name ?? "Admin"}
+        companyCode={company?.code ?? "ams"}
+      >
         {children}
       </AdminShell>
     </AdminCompanyProvider>

@@ -130,6 +130,27 @@ export async function sendRegistrationOtpEmail(
   });
 }
 
+function buildPasswordResetOtpEmailHtml(fullName: string, otp: string) {
+  return buildOtpEmailHtml(fullName, otp).replace(
+    "Gunakan kode OTP berikut untuk menyelesaikan pendaftaran akun bidder Anda.",
+    "Gunakan kode OTP berikut untuk mengatur ulang password akun E-Lelang Anda."
+  );
+}
+
+export async function sendPasswordResetOtpEmail(
+  to: string,
+  fullName: string,
+  otp: string
+) {
+  await sendEmail({
+    to,
+    toName: fullName,
+    subject: "Kode OTP Reset Password E-Lelang",
+    html: buildPasswordResetOtpEmailHtml(fullName, otp),
+    text: `Halo ${fullName},\n\nKode OTP reset password E-Lelang Anda: ${otp}\n\nKode berlaku 10 menit. Jangan bagikan kepada siapa pun.`,
+  });
+}
+
 type WinnerEmailItem = {
   lotNumber: string;
   itemName: string;

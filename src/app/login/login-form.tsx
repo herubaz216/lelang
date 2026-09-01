@@ -81,7 +81,15 @@ export default function LoginForm() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="password">Password</Label>
+                <Link
+                  href={`/lupa-password?redirect=${encodeURIComponent(redirect)}`}
+                  className="text-xs font-medium text-[var(--primary)] hover:underline"
+                >
+                  Lupa password?
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"
