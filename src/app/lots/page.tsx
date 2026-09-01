@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { LotCard } from "@/components/lot-card";
+import { StripedHeroBackground } from "@/components/striped-hero-background";
 import { AuctionItem, ItemPhoto } from "@/lib/database.types";
 
 export default async function LotsPage() {
@@ -31,9 +32,10 @@ export default async function LotsPage() {
     <div className="flex min-h-screen flex-col">
       <Navbar />
       <main className="flex-1">
-        <div className="border-b border-[var(--border)] bg-white">
-          <div className="container-app py-10">
-            <h1 className="text-3xl font-bold text-slate-900">Semua Lot</h1>
+        <div className="relative overflow-hidden border-b border-[var(--border)] bg-white">
+          <StripedHeroBackground />
+          <div className="container-app relative py-10 sm:py-14">
+            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Semua Lot</h1>
             <p className="mt-2 text-slate-500">
               {itemsWithPhotos.length} barang tersedia untuk dilelang
             </p>
