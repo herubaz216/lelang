@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { BidderAuthShell } from "@/components/auth/bidder-auth-shell";
@@ -8,21 +8,71 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { ArrowLeft, Mail, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, Mail, ShieldCheck } from "lucide-react";
 
 type Step = "form" | "otp";
+type NikStatus = "idle" | "loading" | "verified" | "error";
 
 export default function DaftarForm() {
   const [step, setStep] = useState<Step>("form");
   const [employeeNik, setEmployeeNik] = useState("");
   const [fullName, setFullName] = useState("");
+  const [nikStatus, setNikStatus] = useState<NikStatus>("idle");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  const lookupRequestId = useRef(0);
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") ?? "/";
+
+  useEffect(() => {
+    const nik = employeeNik.trim();
+    if (!nik) {
+      setFullName("");
+      setNikStatus("idle");
+      return;
+    }
+
+    const requestId = ++lookupRequestId.current;
+    const timer = window.setTimeout(async () => {
+      setNikStatus("loading");
+      setFullName("");
+
+      try {
+        const res = await fetch(
+          `/api/employee/by-nik?nomor_induk=${encodeURIComponent(nik)}`
+        );
+        const data = await res.json();
+
+        if (requestId !== lookupRequestId.current) return;
+
+        if (!res.ok) {
+          setNikStatus("error");
+          toast.error(data.error ?? "NIK tidak ditemukan");
+          return;
+        }
+
+        setFullName(data.fullName ?? "");
+        setNikStatus("verified");
+      } catch {
+        if (requestId !== lookupRequestId.current) return;
+        setNikStatus("error");
+        toast.error("Gagal memverifikasi NIK karyawan");
+      }
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [employeeNik]);
+
+  function handleNikChange(value: string) {
+    setEmployeeNik(value);
+    if (nikStatus !== "idle") {
+      setNikStatus("idle");
+      setFullName("");
+    }
+  }
 
   async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
@@ -32,7 +82,13 @@ export default function DaftarForm() {
     const name = fullName.trim();
     const emailValue = email.trim();
 
-    if (!nik || !name || !emailValue || password.length < 6) {
+    if (!nik || nikStatus !== "verified" || !name) {
+      setLoading(false);
+      toast.error("Verifikasi NIK karyawan terlebih dahulu");
+      return;
+    }
+
+    if (!emailValue || password.length < 6) {
       setLoading(false);
       toast.error("Lengkapi semua field dengan benar");
       return;
@@ -132,20 +188,37 @@ export default function DaftarForm() {
                 <Input
                   id="employeeNik"
                   value={employeeNik}
-                  onChange={(e) => setEmployeeNik(e.target.value)}
+                  onChange={(e) => handleNikChange(e.target.value)}
                   placeholder="Masukkan NIK karyawan"
                   autoComplete="username"
                   required
                 />
+                {nikStatus === "loading" && (
+                  <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Memverifikasi NIK...
+                  </p>
+                )}
+                {nikStatus === "verified" && (
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    NIK terverifikasi
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="fullName">Nama Karyawan</Label>
                 <Input
                   id="fullName"
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Nama lengkap"
+                  readOnly
+                  placeholder={
+                    nikStatus === "loading"
+                      ? "Mengambil data karyawan..."
+                      : "Otomatis dari NIK karyawan"
+                  }
                   autoComplete="name"
+                  className="cursor-not-allowed bg-slate-50 text-slate-700"
                   required
                 />
               </div>
@@ -174,7 +247,12 @@ export default function DaftarForm() {
                   required
                 />
               </div>
-              <Button type="submit" className="w-full gap-2" size="lg" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full gap-2"
+                size="lg"
+                disabled={loading || nikStatus !== "verified" || !fullName}
+              >
                 <Mail className="h-4 w-4" />
                 {loading ? "Mengirim OTP..." : "Kirim Kode OTP"}
               </Button>

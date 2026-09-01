@@ -63,6 +63,7 @@ export default function LoginForm() {
       title="Login"
       subtitle="Masuk dengan email dan password"
       showBidderBranding={false}
+      showSketchArt
     >
       <Card className="border-0 shadow-lg">
         <CardContent className="pt-6">

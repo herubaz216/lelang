@@ -1,26 +1,30 @@
 import { Gavel } from "lucide-react";
+import { LoginSketchArt } from "@/components/auth/login-sketch-art";
 
 export function BidderAuthShell({
   title,
   subtitle,
   children,
   showBidderBranding = true,
+  showSketchArt = false,
 }: {
   title: string;
   subtitle: string;
   children: React.ReactNode;
   showBidderBranding?: boolean;
+  showSketchArt?: boolean;
 }) {
   return (
     <div className="flex min-h-screen">
-      <div className="hidden flex-1 flex-col justify-between bg-gradient-to-br from-indigo-600 to-indigo-900 p-12 text-white lg:flex">
-        <div className="flex items-center gap-2.5">
+      <div className="relative hidden flex-1 flex-col justify-between overflow-hidden bg-gradient-to-br from-indigo-600 to-indigo-900 p-12 text-white lg:flex">
+        {showSketchArt && <LoginSketchArt />}
+        <div className="relative z-10 flex items-center gap-2.5">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20">
             <Gavel className="h-5 w-5" />
           </div>
           <span className="text-lg font-semibold">E-Lelang</span>
         </div>
-        <div>
+        <div className="relative z-10">
           {showBidderBranding && (
             <p className="mb-3 inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
               Khusus Bidder

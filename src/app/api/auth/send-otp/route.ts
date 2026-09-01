@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendRegistrationOtpEmail } from "@/lib/email";
+import { fetchEmployeeByNik } from "@/lib/employee-api";
 import {
   canResendOtp,
   generateOtpCode,
@@ -29,6 +30,23 @@ export async function POST(request: Request) {
       );
     }
 
+    const employee = await fetchEmployeeByNik(employeeNik);
+    if (!employee.ok) {
+      return NextResponse.json(
+        { error: employee.error },
+        { status: employee.status ?? 404 }
+      );
+    }
+
+    if (employee.fullName !== fullName) {
+      return NextResponse.json(
+        { error: "Nama karyawan tidak sesuai data HR" },
+        { status: 400 }
+      );
+    }
+
+    const verifiedNik = employee.nomorInduk;
+
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: "Format email tidak valid" }, { status: 400 });
     }
@@ -49,7 +67,7 @@ export async function POST(request: Request) {
     const { data: existingProfile } = await admin
       .from("profiles")
       .select("id")
-      .eq("employee_nik", employeeNik)
+      .eq("employee_nik", verifiedNik)
       .maybeSingle();
 
     if (existingProfile) {
@@ -84,7 +102,7 @@ export async function POST(request: Request) {
     const { error: insertError } = await admin.from("registration_otps").insert({
       email,
       otp_hash: hashOtp(email, otp),
-      employee_nik: employeeNik,
+      employee_nik: verifiedNik,
       full_name: fullName,
       attempts: 0,
       expires_at: expiresAt.toISOString(),
