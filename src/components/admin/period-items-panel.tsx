@@ -606,24 +606,6 @@ export function PeriodItemsPanel({
 
     setDeleting(true);
 
-    const { count: bidCount, error: bidError } = await supabase
-      .from("bids")
-      .select("*", { count: "exact", head: true })
-      .eq("item_id", deleteTarget.id);
-
-    if (bidError) {
-      setDeleting(false);
-      toast.error(bidError.message);
-      return;
-    }
-
-    if ((bidCount ?? 0) > 0) {
-      setDeleting(false);
-      setDeleteTarget(null);
-      toast.error("Barang sudah memiliki penawaran dan tidak dapat dihapus");
-      return;
-    }
-
     const { data: itemPhotos } = await supabase
       .from("item_photos")
       .select("storage_path")
@@ -738,7 +720,7 @@ export function PeriodItemsPanel({
         title="Hapus Barang"
         message={
           deleteTarget
-            ? `Yakin ingin menghapus "${deleteTarget.lot_number} — ${deleteTarget.item_name}"? Tindakan ini tidak dapat dibatalkan.`
+            ? `Yakin ingin menghapus "${deleteTarget.lot_number} — ${deleteTarget.item_name}"? Semua penawaran (bid) terkait barang ini juga akan dihapus. Tindakan ini tidak dapat dibatalkan.`
             : ""
         }
         confirmLabel="Hapus"
