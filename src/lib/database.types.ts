@@ -403,6 +403,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      admin_delete_bid: {
+        Args: { p_bid_id: string };
+        Returns: undefined;
+      };
       upsert_bidder: {
         Args: {
           p_employee_nik: string;
