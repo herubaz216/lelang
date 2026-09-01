@@ -28,25 +28,27 @@ export function Pagination({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 border-t border-[var(--border)] pt-4 sm:flex-row sm:items-center sm:justify-between",
+        "@container flex w-full min-w-0 flex-col gap-2 overflow-hidden border-t border-[var(--border)] pt-4 @lg:flex-row @lg:items-center @lg:justify-between @lg:gap-3",
         className
       )}
     >
-      <p className="text-sm text-slate-500">
+      <p className="min-w-0 text-xs text-slate-500 @sm:text-sm">
         Menampilkan {from}–{to} dari {total}
       </p>
-      <div className="flex items-center gap-2">
+      <div className="flex w-full min-w-0 items-center justify-between gap-2 @lg:w-auto @lg:justify-end">
         <Button
           type="button"
           variant="outline"
           size="sm"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
+          aria-label="Halaman sebelumnya"
+          className="shrink-0 px-2.5 @lg:px-3"
         >
-          <ChevronLeft className="h-4 w-4" />
-          Sebelumnya
+          <ChevronLeft className="h-4 w-4 shrink-0" />
+          <span className="hidden @lg:inline">Sebelumnya</span>
         </Button>
-        <span className="min-w-[5rem] text-center text-sm text-slate-600">
+        <span className="shrink-0 px-1 text-center text-sm tabular-nums text-slate-600">
           {page} / {totalPages}
         </span>
         <Button
@@ -55,9 +57,11 @@ export function Pagination({
           size="sm"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
+          aria-label="Halaman berikutnya"
+          className="shrink-0 px-2.5 @lg:px-3"
         >
-          Berikutnya
-          <ChevronRight className="h-4 w-4" />
+          <span className="hidden @lg:inline">Berikutnya</span>
+          <ChevronRight className="h-4 w-4 shrink-0" />
         </Button>
       </div>
     </div>

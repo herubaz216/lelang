@@ -211,7 +211,7 @@ export function AllUsersPanel() {
             )}
           </div>
 
-          <div className="border-t border-[var(--border)] px-3 py-3">
+          <div className="min-w-0 border-t border-[var(--border)] px-3 py-3">
             <Pagination
               page={page}
               pageSize={DEFAULT_PAGE_SIZE}
