@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AuctionItem, AuctionPeriod } from "@/lib/database.types";
 import { formatRupiah, formatNumberId, parseRupiahInput } from "@/lib/format";
-import { isPeriodBiddingOpen } from "@/lib/auction";
+import { isPeriodBiddingOpen, MAX_BIDS_PER_ITEM } from "@/lib/auction";
 import { notifyItemBidUpdate } from "@/lib/bid-events";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Gavel, Minus, Plus, Lock, LogIn } from "lucide-react";
 
 type BidderInfo = {
+  id: string;
   employeeNik: string;
   fullName: string;
 };
@@ -41,7 +42,12 @@ export function BidForm({
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [bidder, setBidder] = useState<BidderInfo | null>(null);
+  const [bidCount, setBidCount] = useState<number | null>(null);
   const supabase = useMemo(() => createClient(), []);
+
+  const remainingBids =
+    bidCount === null ? null : Math.max(0, MAX_BIDS_PER_ITEM - bidCount);
+  const atMaxBids = remainingBids === 0;
 
   useEffect(() => {
     async function loadBidder() {
@@ -63,22 +69,27 @@ export function BidForm({
 
       const { data: bidderProfile } = await supabase
         .from("bidder_profiles")
-        .select("employee_nik, full_name, is_active")
+        .select("id, employee_nik, full_name, is_active")
         .eq("auth_user_id", user.id)
         .maybeSingle();
 
       if (bidderProfile?.is_active) {
         setBidder({
+          id: bidderProfile.id,
           employeeNik: bidderProfile.employee_nik,
           fullName: bidderProfile.full_name,
         });
+        await loadBidCount(bidderProfile.id);
       } else if (profile?.role === "bidder" && profile.employee_nik) {
         setBidder({
+          id: "",
           employeeNik: profile.employee_nik,
           fullName: profile.full_name,
         });
+        setBidCount(null);
       } else {
         setBidder(null);
+        setBidCount(null);
       }
 
       setAuthLoading(false);
@@ -94,6 +105,28 @@ export function BidForm({
 
     return () => subscription.unsubscribe();
   }, [supabase]);
+
+  async function loadBidCount(bidderId: string) {
+    const { count, error } = await supabase
+      .from("bids")
+      .select("*", { count: "exact", head: true })
+      .eq("item_id", item.id)
+      .eq("bidder_id", bidderId)
+      .neq("status", "cancelled");
+
+    if (error) {
+      setBidCount(null);
+      return;
+    }
+
+    setBidCount(count ?? 0);
+  }
+
+  useEffect(() => {
+    if (bidder?.id) {
+      loadBidCount(bidder.id);
+    }
+  }, [bidder?.id, item.id]);
 
   useEffect(() => {
     setCurrentPrice(item.current_price);
@@ -136,6 +169,11 @@ export function BidForm({
       return;
     }
 
+    if (atMaxBids) {
+      toast.error(`Anda telah mencapai batas maksimal ${MAX_BIDS_PER_ITEM} penawaran untuk barang ini`);
+      return;
+    }
+
     if (!biddingOpen) {
       toast.error("Periode lelang telah selesai. Penawaran ditutup.");
       return;
@@ -165,6 +203,7 @@ export function BidForm({
 
     const result = data as { message?: string };
     toast.success(result?.message ?? "Penawaran berhasil!");
+    setBidCount((count) => (count ?? 0) + 1);
     setCurrentPrice(amount);
     updateAmount(amount + item.bid_increment);
     notifyItemBidUpdate(item.id);
@@ -246,13 +285,45 @@ export function BidForm({
               </div>
             </div>
 
+            <div
+              className={`rounded-xl border px-4 py-4 text-center ${
+                atMaxBids
+                  ? "border-red-200 bg-red-50"
+                  : "border-indigo-200 bg-indigo-50/70"
+              }`}
+            >
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Maks. {MAX_BIDS_PER_ITEM} penawaran per barang
+              </p>
+              {remainingBids === null ? (
+                <p className="mt-1 text-sm text-slate-500">Memuat sisa kesempatan...</p>
+              ) : atMaxBids ? (
+                <>
+                  <p className="mt-1 text-2xl font-bold text-red-700 sm:text-3xl">0</p>
+                  <p className="mt-1 text-sm font-medium text-red-700">
+                    Anda telah mencapai batas maksimal penawaran untuk barang ini
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="mt-1 text-sm text-slate-600">Sisa kesempatan bid</p>
+                  <p className="text-3xl font-bold text-[var(--primary)] sm:text-4xl">
+                    {remainingBids}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    dari {MAX_BIDS_PER_ITEM} penawaran
+                  </p>
+                </>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="amount">Nominal Penawaran</Label>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => updateAmount(amount - item.bid_increment)}
-                  disabled={amount - item.bid_increment < minimum}
+                  disabled={atMaxBids || amount - item.bid_increment < minimum}
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-white text-slate-600 disabled:opacity-40"
                   aria-label="Kurangi"
                 >
@@ -272,11 +343,13 @@ export function BidForm({
                     className="pl-10 text-right font-semibold tabular-nums"
                     placeholder="0"
                     required
+                    disabled={atMaxBids}
                   />
                 </div>
                 <button
                   type="button"
                   onClick={() => updateAmount(amount + item.bid_increment)}
+                  disabled={atMaxBids}
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-white text-slate-600"
                   aria-label="Tambah"
                 >
@@ -286,8 +359,17 @@ export function BidForm({
               <p className="text-right text-xs text-slate-500">= {formatRupiah(amount)}</p>
             </div>
 
-            <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "Memproses..." : "Kirim Penawaran"}
+            <Button
+              type="submit"
+              className="w-full"
+              size="lg"
+              disabled={loading || atMaxBids || remainingBids === null}
+            >
+              {loading
+                ? "Memproses..."
+                : atMaxBids
+                  ? "Batas Penawaran Tercapai"
+                  : "Kirim Penawaran"}
             </Button>
           </form>
         )}

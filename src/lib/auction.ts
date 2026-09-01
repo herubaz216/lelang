@@ -1,5 +1,7 @@
 import { AuctionPeriod } from "@/lib/database.types";
 
+export const MAX_BIDS_PER_ITEM = 5;
+
 export function isPeriodBiddingOpen(
   period: Pick<AuctionPeriod, "status" | "end_at"> | null | undefined
 ): boolean {
