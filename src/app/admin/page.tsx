@@ -1,13 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/auth";
+import { fetchCompanyAssetTotals } from "@/lib/admin-dashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { AssetValueChart } from "@/components/admin/asset-value-chart";
 import { Package, Gavel, Calendar, Users } from "lucide-react";
 
 export default async function AdminDashboard() {
   const profile = await requireStaff();
   const supabase = await createClient();
   const companyId = profile.company_id;
+
+  const assetTotals = await fetchCompanyAssetTotals(supabase, companyId);
 
   const { data: companyPeriods } = await supabase
     .from("auction_periods")
@@ -85,6 +89,8 @@ export default async function AdminDashboard() {
           </Card>
         ))}
       </div>
+
+      <AssetValueChart totals={assetTotals} />
 
       {activePeriod && (
         <Card>
