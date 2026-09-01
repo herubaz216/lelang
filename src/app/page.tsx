@@ -49,6 +49,7 @@ export default async function HomePage({
       <CompanySwitcher companies={companies} activeCompany={company} />
       <main className="flex-1">
         <HomeCatalog
+          key={company.id}
           company={company}
           period={period}
           categories={categories}

@@ -1,5 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
-import { AuctionPeriod } from "@/lib/database.types";
+import {
+  AuctionBankAccount,
+  AuctionPeriod,
+  Company,
+} from "@/lib/database.types";
+import { fetchCompanies } from "@/lib/companies";
+import { fetchActiveBankAccounts } from "@/lib/bank-accounts";
 
 export type WinnerRow = {
   itemId: string;
@@ -12,6 +18,14 @@ export type WinnerRow = {
   photoPath: string | null;
   periodCode: string;
   periodTitle: string;
+};
+
+export type CompanyWinnerGroup = {
+  company: Company;
+  period: AuctionPeriod;
+  periods: AuctionPeriod[];
+  rows: WinnerRow[];
+  bankAccounts: AuctionBankAccount[];
 };
 
 export async function fetchFinishedPeriods(
@@ -84,4 +98,45 @@ export async function fetchWinners(
   }));
 
   return { period, rows };
+}
+
+export async function fetchCompanyWinnerGroups(options?: {
+  companyCode?: string;
+  periodId?: string;
+}): Promise<CompanyWinnerGroup[]> {
+  const companies = await fetchCompanies();
+  const filteredCompanies = options?.companyCode
+    ? companies.filter((company) => company.code === options.companyCode)
+    : companies;
+
+  const groups: CompanyWinnerGroup[] = [];
+
+  for (const company of filteredCompanies) {
+    const periods = await fetchFinishedPeriods(company.id);
+    const finishedPeriods = periods.filter((period) => period.status === "finished");
+    if (finishedPeriods.length === 0) continue;
+
+    const selectedPeriod =
+      (options?.periodId
+        ? finishedPeriods.find((period) => period.id === options.periodId)
+        : null) ?? finishedPeriods[0];
+
+    const { period, rows } = await fetchWinners(company.id, selectedPeriod.id);
+    if (!period) continue;
+
+    const bankAccounts =
+      period.status === "finished"
+        ? await fetchActiveBankAccounts(company.id)
+        : [];
+
+    groups.push({
+      company,
+      period,
+      periods: finishedPeriods,
+      rows,
+      bankAccounts,
+    });
+  }
+
+  return groups;
 }

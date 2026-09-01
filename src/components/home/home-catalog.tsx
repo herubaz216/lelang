@@ -45,6 +45,15 @@ export function HomeCatalog({
   const biddingOpen = isPeriodBiddingOpen(period);
   const periodClosed = isPeriodClosed(period);
   const statusLabel = getPeriodStatusLabel(period);
+  const hasCatalogItems = totalItems > 0;
+
+  useEffect(() => {
+    setActiveCategory("all");
+    setItems(initialItems);
+    setHasMore(initialHasMore);
+    setOffset(initialItems.length);
+    skipCategoryFetch.current = true;
+  }, [company.id, period?.id, initialItems, initialHasMore]);
 
   const loadMore = useCallback(
     async (reset = false) => {
@@ -225,48 +234,78 @@ export function HomeCatalog({
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-slate-900">Katalog Lelang</h2>
           <p className="mt-1 text-sm text-slate-500">
-            {totalItems} barang tersedia dalam {categories.length} kategori
+            {period
+              ? `${totalItems} barang tersedia dalam ${categories.length} kategori — ${company.short_name}`
+              : `Belum ada periode lelang untuk ${company.short_name}`}
           </p>
         </div>
 
-        <div className="mb-6">
-          <CategoryFilter
-            categories={categories}
-            activeCategory={activeCategory}
-            totalItems={totalItems}
-            onChange={setActiveCategory}
-          />
-        </div>
-
-        {items.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3">
-            {items.map(({ item, photos }) => (
-              <div key={item.id} className="animate-in">
-                <LotCard item={item} photos={photos} biddingClosed={!biddingOpen} />
-              </div>
-            ))}
-          </div>
-        ) : !loading ? (
-          <div className="flex flex-col items-center py-20 text-center">
+        {!period ? (
+          <div className="flex flex-col items-center rounded-2xl border border-dashed border-slate-200 bg-white py-20 text-center">
             <Package className="h-12 w-12 text-slate-300" />
-            <p className="mt-4 text-slate-500">Tidak ada barang dalam kategori ini.</p>
+            <p className="mt-4 font-medium text-slate-700">
+              Belum ada periode lelang {company.short_name}
+            </p>
+            <p className="mt-1 max-w-md text-sm text-slate-500">
+              Katalog lelang {company.name} akan tampil setelah admin membuat
+              periode dan menambahkan barang.
+            </p>
           </div>
-        ) : null}
-
-        <div ref={sentinelRef} className="h-1" />
-
-        {loading && (
-          <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="skeleton aspect-[3/4] rounded-xl sm:rounded-2xl" />
-            ))}
+        ) : !hasCatalogItems && !loading ? (
+          <div className="flex flex-col items-center rounded-2xl border border-dashed border-slate-200 bg-white py-20 text-center">
+            <Package className="h-12 w-12 text-slate-300" />
+            <p className="mt-4 font-medium text-slate-700">
+              Belum ada barang lelang {company.short_name}
+            </p>
+            <p className="mt-1 max-w-md text-sm text-slate-500">
+              Periode {period.code} sudah tersedia, tetapi belum ada barang yang
+              ditambahkan untuk {company.short_name}.
+            </p>
           </div>
-        )}
+        ) : (
+          <>
+            <div className="mb-6">
+              <CategoryFilter
+                categories={categories}
+                activeCategory={activeCategory}
+                totalItems={totalItems}
+                onChange={setActiveCategory}
+              />
+            </div>
 
-        {!hasMore && items.length > 0 && (
-          <p className="mt-10 text-center text-sm text-slate-400">
-            Semua barang telah dimuat
-          </p>
+            {items.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3">
+                {items.map(({ item, photos }) => (
+                  <div key={item.id} className="animate-in">
+                    <LotCard item={item} photos={photos} biddingClosed={!biddingOpen} />
+                  </div>
+                ))}
+              </div>
+            ) : !loading ? (
+              <div className="flex flex-col items-center py-20 text-center">
+                <Package className="h-12 w-12 text-slate-300" />
+                <p className="mt-4 text-slate-500">
+                  Tidak ada barang dalam kategori ini.
+                </p>
+              </div>
+            ) : null}
+
+            <div ref={sentinelRef} className="h-1" />
+
+            {loading && (
+              <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="skeleton aspect-[3/4] rounded-xl sm:rounded-2xl" />
+                ))}
+              </div>
+            )}
+
+            {!hasMore && items.length > 0 && (
+              <p className="mt-10 text-center text-sm text-slate-400">
+                Semua barang telah dimuat
+              </p>
+            )}
+          </>
         )}
       </section>
     </>

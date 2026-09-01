@@ -144,6 +144,8 @@ type WinnerBankAccount = {
 
 function buildWinnerEmailHtml({
   recipientName,
+  companyShortName,
+  companyName,
   periodCode,
   periodTitle,
   items,
@@ -151,6 +153,8 @@ function buildWinnerEmailHtml({
   bankAccounts,
 }: {
   recipientName: string;
+  companyShortName: string;
+  companyName: string;
   periodCode: string;
   periodTitle: string;
   items: WinnerEmailItem[];
@@ -196,7 +200,7 @@ function buildWinnerEmailHtml({
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
           <tr>
             <td style="background:#4f46e5;padding:24px 28px;">
-              <p style="margin:0;font-size:13px;color:#c7d2fe;letter-spacing:0.08em;text-transform:uppercase;">E-Lelang</p>
+              <p style="margin:0;font-size:13px;color:#c7d2fe;letter-spacing:0.08em;text-transform:uppercase;">E-Lelang &bull; ${escapeHtml(companyShortName)}</p>
               <h1 style="margin:8px 0 0;font-size:22px;line-height:1.3;color:#ffffff;">Selamat, Anda Memenangkan Lelang!</h1>
             </td>
           </tr>
@@ -206,7 +210,7 @@ function buildWinnerEmailHtml({
                 Halo <strong>${escapeHtml(recipientName)}</strong>,
               </p>
               <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#334155;">
-                Lelang periode <strong>${escapeHtml(periodCode)}</strong> — ${escapeHtml(periodTitle)} telah ditutup.
+                Lelang <strong>${escapeHtml(companyName)}</strong> periode <strong>${escapeHtml(periodCode)}</strong> — ${escapeHtml(periodTitle)} telah ditutup.
                 Berikut barang yang Anda menangkan:
               </p>
 
@@ -230,9 +234,9 @@ function buildWinnerEmailHtml({
               </table>
 
               <div style="margin-top:28px;padding-top:24px;border-top:1px solid #e2e8f0;">
-                <h2 style="margin:0 0 8px;font-size:16px;color:#0f172a;">Informasi Pembayaran</h2>
+                <h2 style="margin:0 0 8px;font-size:16px;color:#0f172a;">Informasi Pembayaran ${escapeHtml(companyShortName)}</h2>
                 <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#475569;">
-                  Silakan transfer sesuai total di atas ke rekening berikut:
+                  Silakan transfer sesuai total di atas ke rekening ${escapeHtml(companyShortName)} berikut:
                 </p>
                 ${bankBlocks}
               </div>
@@ -241,7 +245,7 @@ function buildWinnerEmailHtml({
           <tr>
             <td style="padding:18px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;">
               <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">
-                Email otomatis dari E-Lelang &bull; AMS Group
+                Email otomatis dari E-Lelang &bull; ${escapeHtml(companyName)}
               </p>
             </td>
           </tr>
@@ -256,6 +260,8 @@ function buildWinnerEmailHtml({
 export async function sendWinnerNotificationEmail({
   to,
   recipientName,
+  companyShortName,
+  companyName,
   periodCode,
   periodTitle,
   items,
@@ -264,6 +270,8 @@ export async function sendWinnerNotificationEmail({
 }: {
   to: string;
   recipientName: string;
+  companyShortName: string;
+  companyName: string;
   periodCode: string;
   periodTitle: string;
   items: WinnerEmailItem[];
@@ -290,15 +298,17 @@ export async function sendWinnerNotificationEmail({
   await sendEmail({
     to,
     toName: recipientName,
-    subject: `Selamat! Anda Memenangkan Lelang ${periodCode}`,
+    subject: `[${companyShortName}] Selamat! Anda Memenangkan Lelang ${periodCode}`,
     html: buildWinnerEmailHtml({
       recipientName,
+      companyShortName,
+      companyName,
       periodCode,
       periodTitle,
       items,
       totalAmount,
       bankAccounts,
     }),
-    text: `Halo ${recipientName},\n\nLelang periode ${periodCode} — ${periodTitle} telah ditutup.\n\nBarang yang Anda menangkan:\n${itemLines}\n\nTotal pembayaran: ${formatRupiah(totalAmount)}\n\nSilakan transfer ke:\n${bankLines}`,
+    text: `Halo ${recipientName},\n\nLelang ${companyName} periode ${periodCode} — ${periodTitle} telah ditutup.\n\nBarang yang Anda menangkan:\n${itemLines}\n\nTotal pembayaran: ${formatRupiah(totalAmount)}\n\nSilakan transfer ke rekening ${companyShortName}:\n${bankLines}`,
   });
 }

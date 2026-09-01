@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWinnerNotificationEmail } from "@/lib/email";
+import { fetchCompanyById } from "@/lib/companies";
 import { AuctionBankAccount } from "@/lib/database.types";
 
 export type WinnerNotificationRow = {
@@ -115,6 +116,9 @@ export async function sendWinnerEmailsForPeriod(
     .order("created_at", { ascending: true });
 
   const activeAccounts = (bankAccounts ?? []) as AuctionBankAccount[];
+  const company = await fetchCompanyById(period.company_id);
+  const companyShortName = company?.short_name ?? "E-Lelang";
+  const companyName = company?.name ?? "E-Lelang";
 
   let sent = 0;
   for (const recipient of recipients) {
@@ -122,6 +126,8 @@ export async function sendWinnerEmailsForPeriod(
     await sendWinnerNotificationEmail({
       to: recipient.email,
       recipientName: recipient.name,
+      companyShortName,
+      companyName,
       periodCode: period.code,
       periodTitle: period.title,
       items: recipient.items,

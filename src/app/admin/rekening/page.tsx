@@ -263,7 +263,8 @@ export default function RekeningPage() {
         <div>
           <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Master Rekening</h1>
           <p className="text-sm text-slate-500">
-            Kelola rekening pembayaran untuk pemenang lelang
+            Rekening pembayaran pemenang lelang perusahaan Anda. Ditampilkan di halaman hasil
+            dan email pemenang sesuai perusahaan (AMS / AMV).
           </p>
         </div>
         {!isFormOpen && (

@@ -25,15 +25,16 @@ export async function fetchItemsPage({
 }> {
   const supabase = await createClient();
 
+  if (!periodId) {
+    return { items: [], hasMore: false, total: 0 };
+  }
+
   let query = supabase
     .from("auction_items")
     .select("*", { count: "exact" })
+    .eq("period_id", periodId)
     .in("status", ["active", "ready", "sold"])
     .order("lot_number");
-
-  if (periodId) {
-    query = query.eq("period_id", periodId);
-  }
 
   if (category && category !== "all") {
     query = query.eq("category", category);
@@ -74,18 +75,15 @@ export async function fetchItemsPage({
 export async function fetchCategories(
   periodId?: string
 ): Promise<{ name: string; count: number }[]> {
+  if (!periodId) return [];
+
   const supabase = await createClient();
 
-  let query = supabase
+  const { data } = await supabase
     .from("auction_items")
     .select("category")
+    .eq("period_id", periodId)
     .in("status", ["active", "ready", "sold"]);
-
-  if (periodId) {
-    query = query.eq("period_id", periodId);
-  }
-
-  const { data } = await query;
 
   const counts = new Map<string, number>();
   for (const row of data ?? []) {

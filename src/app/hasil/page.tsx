@@ -1,18 +1,12 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { CompanySwitcher } from "@/components/home/company-switcher";
-import { fetchFinishedPeriods, fetchWinners } from "@/lib/winners";
-import { fetchActiveBankAccounts } from "@/lib/bank-accounts";
-import {
-  fetchCompanies,
-  fetchCompanyByCode,
-  resolveCompanyCode,
-} from "@/lib/companies";
-import { formatRupiah, getPhotoUrl } from "@/lib/format";
+import { CompanyWinnerGroupSection } from "@/components/hasil/company-winner-group";
+import { fetchCompanyWinnerGroups } from "@/lib/winners";
+import { fetchCompanies, resolveCompanyCode } from "@/lib/companies";
 import { StripedHeroBackground } from "@/components/striped-hero-background";
-import { Trophy, Package, ChevronRight, Landmark } from "lucide-react";
+import { Trophy, Package } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default async function HasilPage({
   searchParams,
@@ -21,37 +15,20 @@ export default async function HasilPage({
 }) {
   const { period: periodId, company: companyParam } = await searchParams;
   const companies = await fetchCompanies();
-  const companyCode = resolveCompanyCode(companyParam, companies);
-  const company =
-    (await fetchCompanyByCode(companyCode)) ?? companies[0] ?? null;
+  const companyCode = companyParam
+    ? resolveCompanyCode(companyParam, companies)
+    : undefined;
 
-  if (!company) {
-    return (
-      <div className="flex min-h-screen flex-col">
-        <Navbar />
-        <main className="container-app flex flex-1 items-center justify-center py-20 text-slate-500">
-          Perusahaan belum dikonfigurasi.
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  const groups = await fetchCompanyWinnerGroups({
+    companyCode,
+    periodId,
+  });
 
-  const periods = await fetchFinishedPeriods(company.id);
-  const { period, rows } = await fetchWinners(company.id, periodId);
-  const bankAccounts =
-    period?.status === "finished"
-      ? await fetchActiveBankAccounts(company.id)
-      : [];
+  const showAllCompanies = !companyCode;
 
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
-      <CompanySwitcher
-        companies={companies}
-        activeCompany={company}
-        basePath="/hasil"
-      />
       <main className="flex-1">
         <section className="relative overflow-hidden border-b border-[var(--border)] bg-white">
           <StripedHeroBackground />
@@ -65,24 +42,38 @@ export default async function HasilPage({
                   Cek Hasil Pemenang
                 </h1>
                 <p className="mt-1 text-slate-500">
-                  Daftar pemenang lelang per periode
+                  {showAllCompanies
+                    ? "Hasil lelang dikelompokkan per perusahaan"
+                    : "Hasil lelang perusahaan terpilih"}
                 </p>
               </div>
             </div>
 
-            {periods.length > 1 && (
+            {companies.length > 1 && (
               <div className="mt-6 flex flex-wrap gap-2">
-                {periods.map((p) => (
+                <Link
+                  href="/hasil"
+                  className={cn(
+                    "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+                    showAllCompanies
+                      ? "bg-[var(--primary)] text-white"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  )}
+                >
+                  Semua
+                </Link>
+                {companies.map((company) => (
                   <Link
-                    key={p.id}
-                    href={`/hasil?company=${company.code}&period=${p.id}`}
-                    className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                      period?.id === p.id
+                    key={company.id}
+                    href={`/hasil?company=${company.code}`}
+                    className={cn(
+                      "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+                      companyCode === company.code
                         ? "bg-[var(--primary)] text-white"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
+                    )}
                   >
-                    {p.code}
+                    {company.short_name}
                   </Link>
                 ))}
               </div>
@@ -90,8 +81,8 @@ export default async function HasilPage({
           </div>
         </section>
 
-        <section className="container-app py-8 sm:py-12">
-          {!period ? (
+        <section className="container-app space-y-8 py-8 sm:py-12">
+          {groups.length === 0 ? (
             <div className="flex flex-col items-center rounded-2xl border border-dashed border-slate-200 bg-white py-20 text-center">
               <Package className="h-12 w-12 text-slate-300" />
               <p className="mt-4 font-medium text-slate-700">
@@ -102,179 +93,17 @@ export default async function HasilPage({
               </p>
             </div>
           ) : (
-            <>
-              <div className="mb-6 rounded-xl border border-[var(--border)] bg-indigo-50/50 px-4 py-3 sm:px-5">
-                <p className="text-xs font-medium uppercase tracking-wide text-indigo-600">
-                  Periode
-                </p>
-                <p className="font-semibold text-slate-900">{period.title}</p>
-                <p className="text-sm text-slate-500">{period.code}</p>
-              </div>
-
-              {bankAccounts.length > 0 && (
-                <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 sm:p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100">
-                      <Landmark className="h-5 w-5 text-emerald-700" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h2 className="font-semibold text-slate-900">
-                        Informasi Pembayaran
-                      </h2>
-                      <p className="mt-1 text-sm text-slate-600">
-                        Silakan transfer ke rekening berikut untuk menyelesaikan pembayaran
-                        lelang.
-                      </p>
-                      <div className="mt-4 space-y-3">
-                        {bankAccounts.map((account) => (
-                          <div
-                            key={account.id}
-                            className="rounded-xl border border-emerald-200/80 bg-white px-4 py-3"
-                          >
-                            <p className="font-mono text-base font-semibold text-slate-900">
-                              {account.account_number}
-                            </p>
-                            <p className="mt-0.5 text-sm font-medium text-slate-800">
-                              a.n. {account.account_holder}
-                            </p>
-                            {account.notes && (
-                              <p className="mt-1 text-sm text-slate-500">{account.notes}</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {rows.length === 0 ? (
-                <div className="rounded-2xl border border-[var(--border)] bg-white py-16 text-center text-slate-500">
-                  Tidak ada barang dalam periode ini.
-                </div>
-              ) : (
-                <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-sm">
-                  {/* Desktop header */}
-                  <div className="hidden grid-cols-[72px_1fr_120px_140px_140px] gap-4 border-b border-[var(--border)] bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 lg:grid">
-                    <span>Gambar</span>
-                    <span>Nama Barang</span>
-                    <span className="text-right">Harga Awal</span>
-                    <span>Pemenang</span>
-                    <span className="text-right">Last Price</span>
-                  </div>
-
-                  <ul className="divide-y divide-[var(--border)]">
-                    {rows.map((row, index) => (
-                      <li key={row.itemId}>
-                        <Link
-                          href={`/lots/${row.itemId}`}
-                          className="group block transition-colors hover:bg-slate-50/80"
-                        >
-                          {/* Desktop row */}
-                          <div className="hidden items-center gap-4 px-5 py-4 lg:grid lg:grid-cols-[72px_1fr_120px_140px_140px]">
-                            <div className="relative h-14 w-14 overflow-hidden rounded-xl bg-slate-100">
-                              {row.photoPath ? (
-                                <Image
-                                  src={getPhotoUrl(row.photoPath)}
-                                  alt={row.itemName}
-                                  fill
-                                  className="object-cover"
-                                  sizes="56px"
-                                />
-                              ) : (
-                                <div className="flex h-full items-center justify-center text-xl">
-                                  📦
-                                </div>
-                              )}
-                              {index < 3 && row.winnerAlias && (
-                                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-white">
-                                  {index + 1}
-                                </span>
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <span className="font-mono text-xs font-semibold text-[var(--primary)]">
-                                {row.lotNumber}
-                              </span>
-                              <p className="truncate font-medium text-slate-900 group-hover:text-[var(--primary)]">
-                                {row.itemName}
-                              </p>
-                            </div>
-                            <p className="text-right text-sm text-slate-600">
-                              {formatRupiah(row.startingPrice)}
-                            </p>
-                            <div className="min-w-0">
-                              {row.winnerAlias ? (
-                                <p className="truncate text-sm font-semibold text-slate-900">
-                                  {row.winnerAlias}
-                                </p>
-                              ) : (
-                                <span className="text-sm text-slate-400">—</span>
-                              )}
-                            </div>
-                            <p className="text-right text-sm font-bold text-emerald-700">
-                              {formatRupiah(row.lastPrice)}
-                            </p>
-                          </div>
-
-                          {/* Mobile card */}
-                          <div className="flex gap-3 p-4 lg:hidden">
-                            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-100">
-                              {row.photoPath ? (
-                                <Image
-                                  src={getPhotoUrl(row.photoPath)}
-                                  alt={row.itemName}
-                                  fill
-                                  className="object-cover"
-                                  sizes="64px"
-                                />
-                              ) : (
-                                <div className="flex h-full items-center justify-center text-2xl">
-                                  📦
-                                </div>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <span className="font-mono text-[10px] font-semibold text-[var(--primary)]">
-                                    {row.lotNumber}
-                                  </span>
-                                  <p className="line-clamp-2 text-sm font-semibold text-slate-900">
-                                    {row.itemName}
-                                  </p>
-                                </div>
-                                <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
-                              </div>
-                              <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                                <div>
-                                  <p className="text-slate-400">Harga Awal</p>
-                                  <p className="font-medium text-slate-700">
-                                    {formatRupiah(row.startingPrice)}
-                                  </p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-slate-400">Last Price</p>
-                                  <p className="font-bold text-emerald-700">
-                                    {formatRupiah(row.lastPrice)}
-                                  </p>
-                                </div>
-                                <div className="col-span-2">
-                                  <p className="text-slate-400">Pemenang</p>
-                                  <p className="font-semibold text-slate-900">
-                                    {row.winnerAlias ?? "—"}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </>
+            groups.map((group) => (
+              <CompanyWinnerGroupSection
+                key={group.company.id}
+                company={group.company}
+                period={group.period}
+                periods={group.periods}
+                rows={group.rows}
+                bankAccounts={group.bankAccounts}
+                companyCode={group.company.code}
+              />
+            ))
           )}
         </section>
       </main>
