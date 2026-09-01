@@ -178,6 +178,7 @@ export default function DaftarForm() {
           ? "Isi data diri, lalu verifikasi email dengan OTP"
           : `Masukkan kode 6 digit yang dikirim ke ${email}`
       }
+      showSketchArt
     >
       <Card className="border-0 shadow-lg">
         <CardContent className="pt-6">
