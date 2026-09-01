@@ -7,7 +7,7 @@ import { PeriodExportButton } from "@/components/admin/period-export-button";
 import { AuctionItem, AuctionPeriod, ItemPhoto } from "@/lib/database.types";
 import { formatRupiah, formatNumberId, parseRupiahInput, getPhotoUrl } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Textarea } from "@/components/ui/input";
+import { Input, Label, Textarea, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -17,6 +17,8 @@ import { PhotoSourcePicker } from "@/components/admin/photo-source-picker";
 import { cn } from "@/lib/utils";
 import { compressImageFile } from "@/lib/image-compress";
 import { canEditPricing } from "@/lib/roles";
+import { fetchItemCategories } from "@/lib/item-categories";
+import type { ItemCategory } from "@/lib/database.types";
 
 const MAX_PHOTOS = 5;
 
@@ -106,6 +108,14 @@ function RupiahReadOnly({ value }: { value: string }) {
   );
 }
 
+function CategoryBadge({ name }: { name: string }) {
+  return (
+    <span className="inline-flex items-center rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700 ring-1 ring-violet-600/20">
+      {name}
+    </span>
+  );
+}
+
 function ItemForm({
   form,
   setForm,
@@ -121,6 +131,7 @@ function ItemForm({
   title,
   isNew,
   canEditPricing,
+  categories,
 }: {
   form: ItemFormData;
   setForm: React.Dispatch<React.SetStateAction<ItemFormData>>;
@@ -136,6 +147,7 @@ function ItemForm({
   title: string;
   isNew?: boolean;
   canEditPricing: boolean;
+  categories: ItemCategory[];
 }) {
   const isActive = form.status === "active";
   const statusLocked = LOCKED_STATUSES.includes(form.status);
@@ -144,15 +156,18 @@ function ItemForm({
     <div className="rounded-xl border border-indigo-200 bg-indigo-50/30 p-4">
       <p className="mb-3 text-sm font-semibold text-slate-900">{title}</p>
       <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-2">
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-[var(--border)] bg-white px-3 py-2.5 sm:col-span-2">
-          <div>
-            <p className="text-xs text-slate-500">No. Lot</p>
-            <p className="font-mono text-sm font-semibold text-[var(--primary)]">
-              {form.lot_number || "—"}
-            </p>
-            {isNew && (
-              <p className="text-[11px] text-slate-400">Otomatis berurutan</p>
-            )}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-white px-3 py-2.5 sm:col-span-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div>
+              <p className="text-xs text-slate-500">No. Lot</p>
+              <p className="font-mono text-sm font-semibold text-[var(--primary)]">
+                {form.lot_number || "—"}
+              </p>
+              {isNew && (
+                <p className="text-[11px] text-slate-400">Otomatis berurutan</p>
+              )}
+            </div>
+            {form.category && <CategoryBadge name={form.category} />}
           </div>
           <div className="flex items-center gap-2.5">
             {statusLocked ? (
@@ -183,10 +198,18 @@ function ItemForm({
         </div>
         <div className="space-y-1.5">
           <Label>Kategori</Label>
-          <Input
+          <Select
             value={form.category}
             onChange={(e) => setForm({ ...form, category: e.target.value })}
-          />
+            required
+          >
+            <option value="">Pilih kategori</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.name}>
+                {category.name}
+              </option>
+            ))}
+          </Select>
         </div>
         <div className="space-y-1.5">
           <Label>Kondisi</Label>
@@ -336,9 +359,7 @@ function ItemRow({
             {item.lot_number}
           </span>
           <Badge status={item.status} />
-          {item.category && (
-            <span className="text-xs text-slate-500">{item.category}</span>
-          )}
+          {item.category && <CategoryBadge name={item.category} />}
         </div>
         <h3 className="mt-1 truncate font-medium text-slate-900">{item.item_name}</h3>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm">
@@ -400,6 +421,7 @@ export function PeriodItemsPanel({
   const [deleting, setDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AuctionItem | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [categories, setCategories] = useState<ItemCategory[]>([]);
   const supabase = createClient();
 
   const canEditPricingRole = canEditPricing(userRole);
@@ -430,6 +452,12 @@ export function PeriodItemsPanel({
     setEditingCurrentPrice(undefined);
     setPhotos([]);
   }, [periodId]);
+
+  useEffect(() => {
+    fetchItemCategories(supabase)
+      .then(setCategories)
+      .catch(() => toast.error("Gagal memuat master kategori"));
+  }, [supabase]);
 
   useEffect(() => {
     async function loadRole() {
@@ -685,6 +713,7 @@ export function PeriodItemsPanel({
     onPhotoUpload: handlePhotoUpload,
     onPhotoDelete: handlePhotoDelete,
     canEditPricing: canEditPricingRole,
+    categories,
   };
 
   return (

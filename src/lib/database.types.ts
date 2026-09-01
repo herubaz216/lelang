@@ -83,6 +83,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      item_categories: {
+        Row: {
+          id: string;
+          name: string;
+          sort_order: number;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       auction_items: {
         Row: {
           bid_increment: number;
@@ -500,6 +524,7 @@ export type AuctionBankAccount = Database["public"]["Tables"]["auction_bank_acco
 export type BankAccountWithBank = AuctionBankAccount & {
   banks: Pick<Bank, "id" | "code" | "name"> | null;
 };
+export type ItemCategory = Database["public"]["Tables"]["item_categories"]["Row"];
 export type AuctionItem = Database["public"]["Tables"]["auction_items"]["Row"];
 export type AuctionPeriod = Database["public"]["Tables"]["auction_periods"]["Row"];
 export type BidderProfile = Database["public"]["Tables"]["bidder_profiles"]["Row"];

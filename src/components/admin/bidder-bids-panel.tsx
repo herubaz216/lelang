@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { BidderProfile } from "@/lib/database.types";
 import { formatDateTime, formatRupiah } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { toast } from "sonner";
 import { Gavel, Trash2 } from "lucide-react";
 
@@ -40,13 +40,22 @@ export function BidderBidsPanel({
   onBidsChange?: () => void;
 }) {
   const [bids, setBids] = useState<BidderBidRow[]>([]);
+  const [bidsTotal, setBidsTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<BidderBidRow | null>(null);
   const supabase = createClient();
 
+  useEffect(() => {
+    setPage(1);
+  }, [bidderId, companyId]);
+
   async function loadBids() {
     setLoading(true);
+
+    const from = (page - 1) * DEFAULT_PAGE_SIZE;
+    const to = from + DEFAULT_PAGE_SIZE - 1;
 
     const selectFields = companyId
       ? "id, amount, status, created_at, auction_items!inner(id, lot_number, item_name, starting_price, current_price, auction_periods!inner(code, title, status, company_id))"
@@ -54,29 +63,33 @@ export function BidderBidsPanel({
 
     let query = supabase
       .from("bids")
-      .select(selectFields)
+      .select(selectFields, { count: "exact" })
       .eq("bidder_id", bidderId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
     if (companyId) {
       query = query.eq("auction_items.auction_periods.company_id", companyId);
     }
 
-    const { data, error } = await query;
+    const { data, count, error } = await query;
 
     setLoading(false);
 
     if (error) {
       toast.error(error.message);
+      setBids([]);
+      setBidsTotal(0);
       return;
     }
 
     setBids((data ?? []) as unknown as BidderBidRow[]);
+    setBidsTotal(count ?? 0);
   }
 
   useEffect(() => {
     loadBids();
-  }, [bidderId, companyId]);
+  }, [bidderId, companyId, page]);
 
   async function confirmDeleteBid() {
     if (!deleteTarget) return;
@@ -94,7 +107,11 @@ export function BidderBidsPanel({
     }
 
     toast.success("Penawaran dihapus");
-    await loadBids();
+    if (bids.length === 1 && page > 1) {
+      setPage(page - 1);
+    } else {
+      await loadBids();
+    }
     onBidsChange?.();
   }
 
@@ -104,15 +121,15 @@ export function BidderBidsPanel({
         <h2 className="font-semibold text-slate-900">Riwayat Penawaran</h2>
         <p className="text-sm text-slate-500">
           {companyId
-            ? `${bids.length} penawaran pada barang perusahaan ini`
-            : `${bids.length} penawaran tercatat`}
+            ? `${bidsTotal} penawaran pada barang perusahaan ini`
+            : `${bidsTotal} penawaran tercatat`}
         </p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-5">
         {loading ? (
           <p className="text-sm text-slate-500">Memuat penawaran...</p>
-        ) : bids.length === 0 ? (
+        ) : bidsTotal === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Gavel className="h-10 w-10 text-slate-300" />
             <p className="mt-3 text-sm text-slate-500">
@@ -122,71 +139,79 @@ export function BidderBidsPanel({
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {bids.map((bid) => {
-              const item = bid.auction_items;
-              const period = item?.auction_periods;
-              return (
-                <div
-                  key={bid.id}
-                  className="flex items-start justify-between gap-3 rounded-xl border border-[var(--border)] bg-white p-4"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-xs font-semibold text-[var(--primary)]">
-                        {item?.lot_number ?? "—"}
-                      </span>
-                      <Badge status={bid.status} />
-                      {period && <Badge status={period.status} />}
-                    </div>
-                    {item ? (
-                      <Link
-                        href={`/lots/${item.id}`}
-                        className="mt-1 block truncate font-medium text-slate-900 hover:text-[var(--primary)]"
-                      >
-                        {item.item_name}
-                      </Link>
-                    ) : (
-                      <p className="mt-1 truncate font-medium text-slate-900">Barang tidak ditemukan</p>
-                    )}
-                    {period && (
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        {period.code} — {period.title}
-                      </p>
-                    )}
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                      <div>
-                        <span className="text-slate-400">Penawaran: </span>
-                        <span className="font-semibold text-slate-900">
-                          {formatRupiah(bid.amount)}
+          <>
+            <div className="space-y-2">
+              {bids.map((bid) => {
+                const item = bid.auction_items;
+                const period = item?.auction_periods;
+                return (
+                  <div
+                    key={bid.id}
+                    className="flex items-start justify-between gap-3 rounded-xl border border-[var(--border)] bg-white p-4"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-xs font-semibold text-[var(--primary)]">
+                          {item?.lot_number ?? "—"}
                         </span>
+                        <Badge status={bid.status} />
+                        {period && <Badge status={period.status} />}
                       </div>
-                      {item && (
+                      {item ? (
+                        <Link
+                          href={`/lots/${item.id}`}
+                          className="mt-1 block truncate font-medium text-slate-900 hover:text-[var(--primary)]"
+                        >
+                          {item.item_name}
+                        </Link>
+                      ) : (
+                        <p className="mt-1 truncate font-medium text-slate-900">Barang tidak ditemukan</p>
+                      )}
+                      {period && (
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {period.code} — {period.title}
+                        </p>
+                      )}
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
                         <div>
-                          <span className="text-slate-400">Harga terkini: </span>
-                          <span className="font-medium text-emerald-700">
-                            {formatRupiah(item.current_price)}
+                          <span className="text-slate-400">Penawaran: </span>
+                          <span className="font-semibold text-slate-900">
+                            {formatRupiah(bid.amount)}
                           </span>
                         </div>
-                      )}
+                        {item && (
+                          <div>
+                            <span className="text-slate-400">Harga terkini: </span>
+                            <span className="font-medium text-emerald-700">
+                              {formatRupiah(item.current_price)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {formatDateTime(bid.created_at)}
+                      </p>
                     </div>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {formatDateTime(bid.created_at)}
-                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 shrink-0 p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+                      aria-label="Hapus penawaran"
+                      onClick={() => setDeleteTarget(bid)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 shrink-0 p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
-                    aria-label="Hapus penawaran"
-                    onClick={() => setDeleteTarget(bid)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+            <Pagination
+              page={page}
+              pageSize={DEFAULT_PAGE_SIZE}
+              total={bidsTotal}
+              onPageChange={setPage}
+            />
+          </>
         )}
       </div>
 
