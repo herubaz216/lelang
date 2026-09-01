@@ -4,6 +4,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { fetchFinishedPeriods, fetchWinners } from "@/lib/winners";
 import { formatRupiah, getPhotoUrl } from "@/lib/format";
+import { StripedHeroBackground } from "@/components/striped-hero-background";
 import { Trophy, Package, ChevronRight } from "lucide-react";
 
 export default async function HasilPage({
@@ -19,8 +20,9 @@ export default async function HasilPage({
     <div className="flex min-h-screen flex-col">
       <Navbar />
       <main className="flex-1">
-        <section className="border-b border-[var(--border)] bg-white">
-          <div className="container-app py-10 sm:py-14">
+        <section className="relative overflow-hidden border-b border-[var(--border)] bg-white">
+          <StripedHeroBackground />
+          <div className="container-app relative py-10 sm:py-14">
             <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-50">
                 <Trophy className="h-6 w-6 text-amber-600" />
@@ -87,7 +89,7 @@ export default async function HasilPage({
                     <span>Gambar</span>
                     <span>Nama Barang</span>
                     <span className="text-right">Harga Awal</span>
-                    <span>Bidder</span>
+                    <span>Pemenang</span>
                     <span className="text-right">Last Price</span>
                   </div>
 
@@ -114,7 +116,7 @@ export default async function HasilPage({
                                   📦
                                 </div>
                               )}
-                              {index < 3 && row.bidderAlias && (
+                              {index < 3 && (row.winnerName || row.winnerAlias) && (
                                 <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-white">
                                   {index + 1}
                                 </span>
@@ -131,11 +133,26 @@ export default async function HasilPage({
                             <p className="text-right text-sm text-slate-600">
                               {formatRupiah(row.startingPrice)}
                             </p>
-                            <p className="truncate text-sm font-medium text-slate-800">
-                              {row.bidderAlias ?? (
-                                <span className="text-slate-400">—</span>
+                            <div className="min-w-0">
+                              {row.winnerName ? (
+                                <>
+                                  <p className="truncate text-sm font-semibold text-slate-900">
+                                    {row.winnerName}
+                                  </p>
+                                  {row.winnerAlias && (
+                                    <p className="truncate text-xs text-slate-500">
+                                      {row.winnerAlias}
+                                    </p>
+                                  )}
+                                </>
+                              ) : row.winnerAlias ? (
+                                <p className="truncate text-sm font-medium text-slate-800">
+                                  {row.winnerAlias}
+                                </p>
+                              ) : (
+                                <span className="text-sm text-slate-400">—</span>
                               )}
-                            </p>
+                            </div>
                             <p className="text-right text-sm font-bold text-emerald-700">
                               {formatRupiah(row.lastPrice)}
                             </p>
@@ -184,10 +201,21 @@ export default async function HasilPage({
                                   </p>
                                 </div>
                                 <div className="col-span-2">
-                                  <p className="text-slate-400">Bidder</p>
-                                  <p className="font-medium text-slate-800">
-                                    {row.bidderAlias ?? "—"}
-                                  </p>
+                                  <p className="text-slate-400">Pemenang</p>
+                                  {row.winnerName ? (
+                                    <>
+                                      <p className="font-semibold text-slate-900">
+                                        {row.winnerName}
+                                      </p>
+                                      {row.winnerAlias && (
+                                        <p className="text-slate-500">{row.winnerAlias}</p>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <p className="font-medium text-slate-800">
+                                      {row.winnerAlias ?? "—"}
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                             </div>

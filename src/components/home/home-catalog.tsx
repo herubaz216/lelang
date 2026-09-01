@@ -13,6 +13,7 @@ import { LotCard } from "@/components/lot-card";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { Package, Gavel, Timer, Lock, Trophy } from "lucide-react";
 import { CategoryFilter } from "@/components/category-filter";
+import { StripedHeroBackground } from "@/components/striped-hero-background";
 
 const PAGE_SIZE = 12;
 
@@ -101,26 +102,7 @@ export function HomeCatalog({
   return (
     <>
       <section className="relative overflow-hidden bg-white">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-50 via-white to-white" />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            backgroundImage: `repeating-linear-gradient(
-              -32deg,
-              transparent,
-              transparent 18px,
-              rgba(79, 70, 229, 0.07) 18px,
-              rgba(79, 70, 229, 0.07) 19px
-            )`,
-            WebkitMaskImage: "linear-gradient(to left, black 0%, transparent 72%)",
-            maskImage: "linear-gradient(to left, black 0%, transparent 72%)",
-          }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 right-0 w-[58%] bg-gradient-to-l from-indigo-200/25 via-indigo-100/10 to-transparent"
-        />
+        <StripedHeroBackground />
         <div className="container-app relative py-20 lg:py-28">
           <div className="max-w-2xl">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-sm font-medium text-indigo-700">

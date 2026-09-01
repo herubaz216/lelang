@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Plus, Pencil, Upload, Package, X } from "lucide-react";
 import { PhotoSourcePicker } from "@/components/admin/photo-source-picker";
 import { cn } from "@/lib/utils";
+import { compressImageFile } from "@/lib/image-compress";
 
 const MAX_PHOTOS = 5;
 
@@ -515,12 +516,21 @@ export function PeriodItemsPanel({ periodId }: { periodId: string }) {
     }
 
     setUploading(true);
-    const ext = file.name.split(".").pop();
-    const path = `${editingId}/${Date.now()}.${ext}`;
+
+    let uploadFile: File;
+    try {
+      uploadFile = await compressImageFile(file);
+    } catch (error) {
+      setUploading(false);
+      toast.error(error instanceof Error ? error.message : "Gagal mengompres foto");
+      return;
+    }
+
+    const path = `${editingId}/${Date.now()}.jpg`;
 
     const { error: uploadError } = await supabase.storage
       .from("auction-photos")
-      .upload(path, file);
+      .upload(path, uploadFile);
 
     if (uploadError) {
       setUploading(false);

@@ -298,6 +298,19 @@ export type Database = {
     Views: Record<string, never>;
     Functions: {
       current_user_role: { Args: Record<string, never>; Returns: string };
+      get_period_winners: {
+        Args: { p_period_id: string };
+        Returns: {
+          item_id: string;
+          lot_number: string;
+          item_name: string;
+          starting_price: number;
+          last_price: number;
+          winner_name: string | null;
+          winner_alias: string | null;
+          photo_path: string | null;
+        }[];
+      };
       get_public_bid_feed: {
         Args: { p_item_id: string };
         Returns: {
