@@ -14,6 +14,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Profile, UserRole } from "@/lib/database.types";
+import { ACCOUNTING_ROLES } from "@/lib/roles";
 
 const navItems: {
   href: string;
@@ -24,7 +25,7 @@ const navItems: {
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/periods", label: "Periode & Barang", icon: Calendar },
   { href: "/admin/bidders", label: "Bidder", icon: Users },
-  { href: "/admin/rekening", label: "Rekening", icon: Landmark, roles: ["accounting"] },
+  { href: "/admin/rekening", label: "Rekening", icon: Landmark, roles: ACCOUNTING_ROLES },
   { href: "/admin/reports", label: "Laporan", icon: FileText },
 ];
 

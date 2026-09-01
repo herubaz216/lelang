@@ -432,4 +432,4 @@ export type ItemPhoto = Database["public"]["Tables"]["item_photos"]["Row"];
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export type AuditLog = Database["public"]["Tables"]["audit_logs"]["Row"];
 export type BidFeedEntry = Database["public"]["Functions"]["get_public_bid_feed"]["Returns"][number];
-export type UserRole = "ga" | "accounting" | "bidder";
+export type UserRole = "ga" | "accounting" | "ga_accounting" | "bidder";

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Profile, UserRole } from "@/lib/database.types";
+import { STAFF_ROLES } from "@/lib/roles";
 import { redirect } from "next/navigation";
 
 export async function getStaffProfile(): Promise<Profile | null> {
@@ -19,7 +20,7 @@ export async function getStaffProfile(): Promise<Profile | null> {
   return profile;
 }
 
-export async function requireStaff(allowedRoles: UserRole[] = ["ga", "accounting"]) {
+export async function requireStaff(allowedRoles: UserRole[] = STAFF_ROLES) {
   const profile = await getStaffProfile();
 
   if (!profile) {

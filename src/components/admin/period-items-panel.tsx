@@ -15,6 +15,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PhotoSourcePicker } from "@/components/admin/photo-source-picker";
 import { cn } from "@/lib/utils";
 import { compressImageFile } from "@/lib/image-compress";
+import { canEditPricing } from "@/lib/roles";
 
 const MAX_PHOTOS = 5;
 
@@ -373,7 +374,7 @@ export function PeriodItemsPanel({
   const [userRole, setUserRole] = useState<string | null>(null);
   const supabase = createClient();
 
-  const canEditPricing = userRole === "accounting";
+  const canEditPricingRole = canEditPricing(userRole);
   const isFormOpen = addingNew || editingId !== null;
 
   async function loadItems() {
@@ -480,7 +481,7 @@ export function PeriodItemsPanel({
       status: form.status,
     };
 
-    if (canEditPricing) {
+    if (canEditPricingRole) {
       basePayload.starting_price = startingPrice;
       basePayload.bid_increment = bidIncrement;
     }
@@ -503,9 +504,9 @@ export function PeriodItemsPanel({
         ...basePayload,
         period_id: periodId,
         lot_number: form.lot_number,
-        starting_price: canEditPricing ? startingPrice : 0,
-        bid_increment: canEditPricing ? bidIncrement : 10000,
-        current_price: canEditPricing ? startingPrice : 0,
+        starting_price: canEditPricingRole ? startingPrice : 0,
+        bid_increment: canEditPricingRole ? bidIncrement : 10000,
+        current_price: canEditPricingRole ? startingPrice : 0,
       };
 
       const { data, error } = await supabase
@@ -650,7 +651,7 @@ export function PeriodItemsPanel({
     onCancel: cancelForm,
     onPhotoUpload: handlePhotoUpload,
     onPhotoDelete: handlePhotoDelete,
-    canEditPricing,
+    canEditPricing: canEditPricingRole,
   };
 
   return (

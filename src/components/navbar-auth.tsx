@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Profile } from "@/lib/database.types";
+import { isStaffRole } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { LogOut, User } from "lucide-react";
 
@@ -67,12 +68,11 @@ export function NavbarAuth({ profile: profileProp }: { profile?: Profile | null 
   }
 
   if (profile) {
-    const profileHref =
-      profile.role === "bidder"
-        ? "/bid-saya"
-        : profile.role === "ga" || profile.role === "accounting"
-          ? "/admin"
-          : "/";
+    const profileHref = profile.role === "bidder"
+      ? "/bid-saya"
+      : isStaffRole(profile.role)
+        ? "/admin"
+        : "/";
 
     return (
       <div className="hidden items-center gap-2 lg:flex lg:gap-3">

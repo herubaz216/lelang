@@ -10,6 +10,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ensureBidderProfile } from "@/lib/bidder-auth";
+import { isStaffRole } from "@/lib/roles";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
@@ -51,10 +52,7 @@ export default function LoginForm() {
     setLoading(false);
     toast.success("Login berhasil");
 
-    const destination =
-      profile?.role === "ga" || profile?.role === "accounting"
-        ? "/admin"
-        : redirect;
+    const destination = isStaffRole(profile?.role) ? "/admin" : redirect;
 
     router.push(destination);
     router.refresh();

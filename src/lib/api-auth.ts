@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { UserRole } from "@/lib/database.types";
+import { STAFF_ROLES } from "@/lib/roles";
 
 export async function requireStaffApi(
-  allowedRoles: UserRole[] = ["ga", "accounting"]
+  allowedRoles: UserRole[] = STAFF_ROLES
 ) {
   const supabase = await createClient();
   const {

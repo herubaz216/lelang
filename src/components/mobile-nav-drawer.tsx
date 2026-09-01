@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { Profile } from "@/lib/database.types";
+import { isStaffRole } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -41,7 +42,7 @@ export function MobileNavDrawer({
   const router = useRouter();
   const supabase = createClient();
 
-  const isStaff = profile?.role === "ga" || profile?.role === "accounting";
+  const isStaff = isStaffRole(profile?.role);
   const isBidder = profile?.role === "bidder";
 
   async function handleLogout() {
