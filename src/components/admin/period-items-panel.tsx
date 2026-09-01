@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { AuctionItem, ItemPhoto } from "@/lib/database.types";
+import { PeriodExportButton } from "@/components/admin/period-export-button";
+import { AuctionItem, AuctionPeriod, ItemPhoto } from "@/lib/database.types";
 import { formatRupiah, formatNumberId, parseRupiahInput, getPhotoUrl } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
@@ -356,9 +357,11 @@ function ItemRow({
 }
 
 export function PeriodItemsPanel({
+  period,
   periodId,
   onItemsChange,
 }: {
+  period: AuctionPeriod;
   periodId: string;
   onItemsChange?: () => void;
 }) {
@@ -662,15 +665,22 @@ export function PeriodItemsPanel({
           <p className="text-sm text-slate-500">{items.length} lot dalam periode ini</p>
         </div>
         {!isFormOpen && (
-          <Button
-            variant="primary"
-            size="sm"
-            className="w-full shrink-0 whitespace-nowrap sm:w-auto"
-            onClick={startAdd}
-          >
-            <Plus className="h-4 w-4" />
-            Tambah Barang
-          </Button>
+          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
+            <PeriodExportButton
+              period={period}
+              itemCount={items.length}
+              className="w-full sm:w-auto"
+            />
+            <Button
+              variant="primary"
+              size="sm"
+              className="w-full whitespace-nowrap sm:w-auto"
+              onClick={startAdd}
+            >
+              <Plus className="h-4 w-4" />
+              Tambah Barang
+            </Button>
+          </div>
         )}
       </div>
 

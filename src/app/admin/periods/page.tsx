@@ -487,6 +487,7 @@ export default function PeriodsMasterDetailPage() {
               <PeriodWinnerEmailBar period={selectedPeriod} onSent={loadPeriods} />
               <PeriodItemsPanel
                 key={selectedPeriod.id}
+                period={selectedPeriod}
                 periodId={selectedPeriod.id}
                 onItemsChange={loadItemCounts}
               />
@@ -532,6 +533,7 @@ export default function PeriodsMasterDetailPage() {
               <PeriodWinnerEmailBar period={selectedPeriod} onSent={loadPeriods} />
               <PeriodItemsPanel
                 key={selectedPeriod.id}
+                period={selectedPeriod}
                 periodId={selectedPeriod.id}
                 onItemsChange={loadItemCounts}
               />

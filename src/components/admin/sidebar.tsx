@@ -10,6 +10,7 @@ import {
   LogOut,
   Gavel,
   Landmark,
+  Trophy,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,7 @@ const navItems: {
 }[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/periods", label: "Periode & Barang", icon: Calendar },
+  { href: "/admin/pemenang", label: "Info Pemenang", icon: Trophy },
   { href: "/admin/bidders", label: "Bidder", icon: Users },
   { href: "/admin/rekening", label: "Rekening", icon: Landmark, roles: ACCOUNTING_ROLES },
   { href: "/admin/reports", label: "Laporan", icon: FileText },

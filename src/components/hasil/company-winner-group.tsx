@@ -1,8 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import { AuctionPeriod, Company } from "@/lib/database.types";
+import { AuctionPeriod, BankAccountWithBank, Company } from "@/lib/database.types";
 import { WinnerRow } from "@/lib/winners";
-import { AuctionBankAccount } from "@/lib/database.types";
+import { getBankName } from "@/lib/bank-utils";
 import { formatRupiah, getPhotoUrl } from "@/lib/format";
 import { Landmark, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,7 @@ export function CompanyWinnerGroupSection({
   period: AuctionPeriod;
   periods: AuctionPeriod[];
   rows: WinnerRow[];
-  bankAccounts: AuctionBankAccount[];
+  bankAccounts: BankAccountWithBank[];
   companyCode: string;
 }) {
   return (
@@ -79,7 +79,10 @@ export function CompanyWinnerGroupSection({
                       key={account.id}
                       className="rounded-xl border border-emerald-200/80 bg-white px-4 py-3"
                     >
-                      <p className="font-mono text-base font-semibold text-slate-900">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                        {getBankName(account)}
+                      </p>
+                      <p className="mt-1 font-mono text-base font-semibold text-slate-900">
                         {account.account_number}
                       </p>
                       <p className="mt-0.5 text-sm font-medium text-slate-800">

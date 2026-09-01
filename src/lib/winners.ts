@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   AuctionBankAccount,
   AuctionPeriod,
+  BankAccountWithBank,
   Company,
 } from "@/lib/database.types";
 import { fetchCompanies } from "@/lib/companies";
@@ -25,7 +26,7 @@ export type CompanyWinnerGroup = {
   period: AuctionPeriod;
   periods: AuctionPeriod[];
   rows: WinnerRow[];
-  bankAccounts: AuctionBankAccount[];
+  bankAccounts: BankAccountWithBank[];
 };
 
 export async function fetchFinishedPeriods(

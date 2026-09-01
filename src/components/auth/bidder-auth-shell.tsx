@@ -4,10 +4,12 @@ export function BidderAuthShell({
   title,
   subtitle,
   children,
+  showBidderBranding = true,
 }: {
   title: string;
   subtitle: string;
   children: React.ReactNode;
+  showBidderBranding?: boolean;
 }) {
   return (
     <div className="flex min-h-screen">
@@ -19,9 +21,11 @@ export function BidderAuthShell({
           <span className="text-lg font-semibold">E-Lelang</span>
         </div>
         <div>
-          <p className="mb-3 inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
-            Khusus Bidder
-          </p>
+          {showBidderBranding && (
+            <p className="mb-3 inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide">
+              Khusus Bidder
+            </p>
+          )}
           <h2 className="text-3xl font-bold leading-tight">
             Ikuti lelang aset internal perusahaan
           </h2>
@@ -38,17 +42,21 @@ export function BidderAuthShell({
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50">
               <Gavel className="h-6 w-6 text-[var(--primary)]" />
             </div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--primary)]">
-              Bidder
-            </p>
-            <h1 className="mt-1 text-xl font-bold text-slate-900">{title}</h1>
+            {showBidderBranding && (
+              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--primary)]">
+                Bidder
+              </p>
+            )}
+            <h1 className={showBidderBranding ? "mt-1 text-xl font-bold text-slate-900" : "text-xl font-bold text-slate-900"}>{title}</h1>
             <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
           </div>
           <div className="hidden lg:block lg:mb-6 lg:text-center">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--primary)]">
-              Bidder
-            </p>
-            <h1 className="mt-1 text-2xl font-bold text-slate-900">{title}</h1>
+            {showBidderBranding && (
+              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--primary)]">
+                Bidder
+              </p>
+            )}
+            <h1 className={showBidderBranding ? "mt-1 text-2xl font-bold text-slate-900" : "text-2xl font-bold text-slate-900"}>{title}</h1>
             <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
           </div>
           {children}

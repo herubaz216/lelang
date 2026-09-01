@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { AuctionBankAccount } from "@/lib/database.types";
+import { BankAccountWithBank, Bank } from "@/lib/database.types";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Textarea } from "@/components/ui/input";
+import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { useAdminCompanyId } from "@/components/admin/admin-company-context";
 
 const emptyForm = {
+  bank_id: "",
   account_number: "",
   account_holder: "",
   notes: "",
@@ -26,6 +27,7 @@ type FormData = typeof emptyForm;
 function AccountForm({
   form,
   setForm,
+  banks,
   loading,
   title,
   onSubmit,
@@ -33,6 +35,7 @@ function AccountForm({
 }: {
   form: FormData;
   setForm: React.Dispatch<React.SetStateAction<FormData>>;
+  banks: Bank[];
   loading: boolean;
   title: string;
   onSubmit: (e: React.FormEvent) => void;
@@ -42,6 +45,23 @@ function AccountForm({
     <div className="rounded-xl border border-indigo-200 bg-indigo-50/30 p-4">
       <p className="mb-3 text-sm font-semibold text-slate-900">{title}</p>
       <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Nama Bank</Label>
+          <Select
+            value={form.bank_id}
+            onChange={(e) => setForm({ ...form, bank_id: e.target.value })}
+            required
+          >
+            <option value="" disabled>
+              Pilih bank
+            </option>
+            {banks.map((bank) => (
+              <option key={bank.id} value={bank.id}>
+                {bank.name}
+              </option>
+            ))}
+          </Select>
+        </div>
         <div className="space-y-1.5">
           <Label>Nomor Rekening</Label>
           <Input
@@ -65,7 +85,7 @@ function AccountForm({
           <Textarea
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            placeholder="Contoh: Bank BCA Cabang Sudirman"
+            placeholder="Contoh: Cabang Sudirman"
           />
         </div>
         <div className="flex items-center justify-between gap-4 rounded-lg border border-[var(--border)] bg-white px-3 py-2.5 sm:col-span-2">
@@ -95,13 +115,15 @@ function AccountForm({
 
 function AccountRow({
   account,
+  bankName,
   onEdit,
   onDelete,
   disabled,
 }: {
-  account: AuctionBankAccount;
-  onEdit: (account: AuctionBankAccount) => void;
-  onDelete: (account: AuctionBankAccount) => void;
+  account: BankAccountWithBank;
+  bankName: string;
+  onEdit: (account: BankAccountWithBank) => void;
+  onDelete: (account: BankAccountWithBank) => void;
   disabled?: boolean;
 }) {
   return (
@@ -114,6 +136,9 @@ function AccountRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <Landmark className="h-4 w-4 text-[var(--primary)]" />
+          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+            {bankName}
+          </span>
           <span className="font-mono text-sm font-semibold text-slate-900">
             {account.account_number}
           </span>
@@ -151,25 +176,30 @@ function AccountRow({
 }
 
 export default function RekeningPage() {
-  const [accounts, setAccounts] = useState<AuctionBankAccount[]>([]);
+  const [accounts, setAccounts] = useState<BankAccountWithBank[]>([]);
+  const [banks, setBanks] = useState<Bank[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [addingNew, setAddingNew] = useState(false);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<AuctionBankAccount | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<BankAccountWithBank | null>(null);
   const supabase = createClient();
   const companyId = useAdminCompanyId();
 
   const isFormOpen = addingNew || editingId !== null;
 
   async function load() {
-    const { data } = await supabase
-      .from("auction_bank_accounts")
-      .select("*")
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: true });
-    setAccounts(data ?? []);
+    const [{ data: accountData }, { data: bankData }] = await Promise.all([
+      supabase
+        .from("auction_bank_accounts")
+        .select("*, banks(id, code, name)")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: true }),
+      supabase.from("banks").select("*").order("sort_order", { ascending: true }),
+    ]);
+    setAccounts(accountData ?? []);
+    setBanks(bankData ?? []);
   }
 
   useEffect(() => {
@@ -178,14 +208,18 @@ export default function RekeningPage() {
 
   function startAdd() {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      bank_id: banks[0]?.id ?? "",
+    });
     setAddingNew(true);
   }
 
-  function startEdit(account: AuctionBankAccount) {
+  function startEdit(account: BankAccountWithBank) {
     setAddingNew(false);
     setEditingId(account.id);
     setForm({
+      bank_id: account.bank_id,
       account_number: account.account_number,
       account_holder: account.account_holder,
       notes: account.notes ?? "",
@@ -204,6 +238,7 @@ export default function RekeningPage() {
     setLoading(true);
 
     const payload = {
+      bank_id: form.bank_id,
       account_number: form.account_number.trim(),
       account_holder: form.account_holder.trim(),
       notes: form.notes.trim() || null,
@@ -213,6 +248,7 @@ export default function RekeningPage() {
 
     const { error } = editingId
       ? await supabase.from("auction_bank_accounts").update({
+          bank_id: payload.bank_id,
           account_number: payload.account_number,
           account_holder: payload.account_holder,
           notes: payload.notes,
@@ -292,8 +328,9 @@ export default function RekeningPage() {
                 key={account.id}
                 form={form}
                 setForm={setForm}
+                banks={banks}
                 loading={loading}
-                title={`Edit Rekening — ${account.account_number}`}
+                title={`Edit Rekening — ${account.banks?.name ?? "Bank"} ${account.account_number}`}
                 onSubmit={handleSubmit}
                 onCancel={cancelForm}
               />
@@ -301,6 +338,7 @@ export default function RekeningPage() {
               <AccountRow
                 key={account.id}
                 account={account}
+                bankName={account.banks?.name ?? "Bank"}
                 onEdit={startEdit}
                 onDelete={setDeleteTarget}
                 disabled={isFormOpen}
@@ -312,6 +350,7 @@ export default function RekeningPage() {
             <AccountForm
               form={form}
               setForm={setForm}
+              banks={banks}
               loading={loading}
               title="Tambah Rekening Baru"
               onSubmit={handleSubmit}
@@ -326,7 +365,7 @@ export default function RekeningPage() {
         title="Hapus Rekening"
         message={
           deleteTarget
-            ? `Yakin ingin menghapus rekening ${deleteTarget.account_number} a.n. ${deleteTarget.account_holder}?`
+            ? `Yakin ingin menghapus rekening ${deleteTarget.banks?.name ?? "Bank"} ${deleteTarget.account_number} a.n. ${deleteTarget.account_holder}?`
             : ""
         }
         confirmLabel="Hapus"

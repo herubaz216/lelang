@@ -110,12 +110,14 @@ export async function sendWinnerEmailsForPeriod(
 
   const { data: bankAccounts } = await admin
     .from("auction_bank_accounts")
-    .select("*")
+    .select("*, banks(id, code, name)")
     .eq("company_id", period.company_id)
     .eq("is_active", true)
     .order("created_at", { ascending: true });
 
-  const activeAccounts = (bankAccounts ?? []) as AuctionBankAccount[];
+  const activeAccounts = (bankAccounts ?? []) as (AuctionBankAccount & {
+    banks: { id: string; code: string; name: string } | null;
+  })[];
   const company = await fetchCompanyById(period.company_id);
   const companyShortName = company?.short_name ?? "E-Lelang";
   const companyName = company?.name ?? "E-Lelang";
@@ -133,6 +135,7 @@ export async function sendWinnerEmailsForPeriod(
       items: recipient.items,
       totalAmount,
       bankAccounts: activeAccounts.map((account) => ({
+        bankName: account.banks?.name ?? "Bank",
         accountNumber: account.account_number,
         accountHolder: account.account_holder,
         notes: account.notes,

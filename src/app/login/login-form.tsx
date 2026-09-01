@@ -59,7 +59,11 @@ export default function LoginForm() {
   }
 
   return (
-    <BidderAuthShell title="Login Bidder" subtitle="Masuk dengan email dan password">
+    <BidderAuthShell
+      title="Login"
+      subtitle="Masuk dengan email dan password"
+      showBidderBranding={false}
+    >
       <Card className="border-0 shadow-lg">
         <CardContent className="pt-6">
           <form onSubmit={handleLogin} className="space-y-4">

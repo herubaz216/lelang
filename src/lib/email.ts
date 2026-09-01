@@ -137,6 +137,7 @@ type WinnerEmailItem = {
 };
 
 type WinnerBankAccount = {
+  bankName: string;
   accountNumber: string;
   accountHolder: string;
   notes: string | null;
@@ -178,7 +179,8 @@ function buildWinnerEmailHtml({
           .map(
             (account) => `
               <div style="margin-top:12px;padding:14px 16px;border:1px solid #bbf7d0;border-radius:12px;background:#f0fdf4;">
-                <p style="margin:0;font-family:monospace;font-size:16px;font-weight:700;color:#14532d;">${escapeHtml(account.accountNumber)}</p>
+                <p style="margin:0;font-size:12px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#166534;">${escapeHtml(account.bankName)}</p>
+                <p style="margin:8px 0 0;font-family:monospace;font-size:16px;font-weight:700;color:#14532d;">${escapeHtml(account.accountNumber)}</p>
                 <p style="margin:6px 0 0;font-size:14px;color:#166534;">a.n. ${escapeHtml(account.accountHolder)}</p>
                 ${account.notes ? `<p style="margin:6px 0 0;font-size:13px;color:#4b5563;">${escapeHtml(account.notes)}</p>` : ""}
               </div>`
@@ -290,7 +292,7 @@ export async function sendWinnerNotificationEmail({
       ? bankAccounts
           .map(
             (account) =>
-              `${account.accountNumber} a.n. ${account.accountHolder}${account.notes ? ` (${account.notes})` : ""}`
+              `${account.bankName} — ${account.accountNumber} a.n. ${account.accountHolder}${account.notes ? ` (${account.notes})` : ""}`
           )
           .join("\n")
       : "Informasi rekening akan diinformasikan lebih lanjut.";

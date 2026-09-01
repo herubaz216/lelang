@@ -13,6 +13,7 @@ export type Database = {
         Row: {
           account_holder: string;
           account_number: string;
+          bank_id: string;
           company_id: string;
           created_at: string;
           created_by: string | null;
@@ -25,6 +26,7 @@ export type Database = {
         Insert: {
           account_holder: string;
           account_number: string;
+          bank_id: string;
           company_id: string;
           created_at?: string;
           created_by?: string | null;
@@ -37,6 +39,7 @@ export type Database = {
         Update: {
           account_holder?: string;
           account_number?: string;
+          bank_id?: string;
           company_id?: string;
           created_at?: string;
           created_by?: string | null;
@@ -45,6 +48,38 @@ export type Database = {
           notes?: string | null;
           updated_at?: string;
           updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "auction_bank_accounts_bank_id_fkey";
+            columns: ["bank_id"];
+            isOneToOne: false;
+            referencedRelation: "banks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      banks: {
+        Row: {
+          code: string;
+          created_at: string;
+          id: string;
+          name: string;
+          sort_order: number;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          id?: string;
+          name: string;
+          sort_order?: number;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          id?: string;
+          name?: string;
+          sort_order?: number;
         };
         Relationships: [];
       };
@@ -460,7 +495,11 @@ export type Database = {
 };
 
 export type Company = Database["public"]["Tables"]["companies"]["Row"];
+export type Bank = Database["public"]["Tables"]["banks"]["Row"];
 export type AuctionBankAccount = Database["public"]["Tables"]["auction_bank_accounts"]["Row"];
+export type BankAccountWithBank = AuctionBankAccount & {
+  banks: Pick<Bank, "id" | "code" | "name"> | null;
+};
 export type AuctionItem = Database["public"]["Tables"]["auction_items"]["Row"];
 export type AuctionPeriod = Database["public"]["Tables"]["auction_periods"]["Row"];
 export type BidderProfile = Database["public"]["Tables"]["bidder_profiles"]["Row"];
