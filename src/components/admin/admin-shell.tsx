@@ -49,7 +49,7 @@ export function AdminShell({
   }
 
   return (
-    <div className="flex min-h-screen bg-[var(--background)]">
+    <div className="flex h-screen overflow-hidden bg-[var(--background)]">
       {mobileOpen && (
         <button
           type="button"
