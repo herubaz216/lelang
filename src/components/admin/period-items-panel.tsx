@@ -111,6 +111,7 @@ function ItemForm({
   setForm,
   photos,
   editingId,
+  currentPrice,
   loading,
   uploading,
   onSubmit,
@@ -125,6 +126,7 @@ function ItemForm({
   setForm: React.Dispatch<React.SetStateAction<ItemFormData>>;
   photos: ItemPhoto[];
   editingId: string | null;
+  currentPrice?: number;
   loading: boolean;
   uploading: boolean;
   onSubmit: (e: React.FormEvent) => void;
@@ -217,6 +219,15 @@ function ItemForm({
             </>
           )}
         </div>
+        {editingId && currentPrice !== undefined && currentPrice > Number(form.starting_price) && (
+          <div className="space-y-1.5">
+            <Label>Harga Terkini</Label>
+            <RupiahReadOnly value={String(currentPrice)} />
+            <p className="text-xs text-slate-500">
+              Diperbarui otomatis dari penawaran bidder
+            </p>
+          </div>
+        )}
         <div className="space-y-1.5">
           <Label>Kelipatan Bid</Label>
           {canEditPricing ? (
@@ -310,6 +321,8 @@ function ItemRow({
   onDelete: (item: AuctionItem) => void;
   disabled?: boolean;
 }) {
+  const hasBids = item.current_price > item.starting_price;
+
   return (
     <div
       className={cn(
@@ -328,7 +341,18 @@ function ItemRow({
           )}
         </div>
         <h3 className="mt-1 truncate font-medium text-slate-900">{item.item_name}</h3>
-        <p className="text-sm text-slate-500">{formatRupiah(item.current_price)}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm">
+          <p className="text-slate-500">
+            <span className="text-slate-400">Harga awal: </span>
+            {formatRupiah(item.starting_price)}
+          </p>
+          {hasBids && (
+            <p className="font-medium text-emerald-700">
+              <span className="font-normal text-slate-400">Terkini: </span>
+              {formatRupiah(item.current_price)}
+            </p>
+          )}
+        </div>
       </div>
       <div className="ml-3 flex shrink-0 gap-1">
         <Button
@@ -369,6 +393,7 @@ export function PeriodItemsPanel({
   const [photos, setPhotos] = useState<ItemPhoto[]>([]);
   const [form, setForm] = useState(emptyItemForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingCurrentPrice, setEditingCurrentPrice] = useState<number | undefined>();
   const [addingNew, setAddingNew] = useState(false);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -402,6 +427,7 @@ export function PeriodItemsPanel({
     loadItems();
     setAddingNew(false);
     setEditingId(null);
+    setEditingCurrentPrice(undefined);
     setPhotos([]);
   }, [periodId]);
 
@@ -432,6 +458,7 @@ export function PeriodItemsPanel({
   function startEdit(item: AuctionItem) {
     setAddingNew(false);
     setEditingId(item.id);
+    setEditingCurrentPrice(item.current_price);
     setForm({
       lot_number: item.lot_number,
       item_name: item.item_name,
@@ -446,6 +473,7 @@ export function PeriodItemsPanel({
 
   function startAdd() {
     setEditingId(null);
+    setEditingCurrentPrice(undefined);
     setForm({
       ...emptyItemForm,
       lot_number: getNextLotNumber(items),
@@ -457,6 +485,7 @@ export function PeriodItemsPanel({
   function cancelForm() {
     setAddingNew(false);
     setEditingId(null);
+    setEditingCurrentPrice(undefined);
     setForm(emptyItemForm);
     setPhotos([]);
   }
@@ -648,6 +677,7 @@ export function PeriodItemsPanel({
     setForm,
     photos,
     editingId,
+    currentPrice: editingCurrentPrice,
     loading,
     uploading,
     onSubmit: handleSubmit,
