@@ -32,9 +32,11 @@ type BidderBidRow = {
 
 export function BidderBidsPanel({
   bidderId,
+  companyId,
   onBidsChange,
 }: {
   bidderId: string;
+  companyId?: string;
   onBidsChange?: () => void;
 }) {
   const [bids, setBids] = useState<BidderBidRow[]>([]);
@@ -45,13 +47,22 @@ export function BidderBidsPanel({
 
   async function loadBids() {
     setLoading(true);
-    const { data, error } = await supabase
+
+    const selectFields = companyId
+      ? "id, amount, status, created_at, auction_items!inner(id, lot_number, item_name, starting_price, current_price, auction_periods!inner(code, title, status, company_id))"
+      : "id, amount, status, created_at, auction_items(id, lot_number, item_name, starting_price, current_price, auction_periods(code, title, status, company_id))";
+
+    let query = supabase
       .from("bids")
-      .select(
-        "id, amount, status, created_at, auction_items(id, lot_number, item_name, starting_price, current_price, auction_periods(code, title, status))"
-      )
+      .select(selectFields)
       .eq("bidder_id", bidderId)
       .order("created_at", { ascending: false });
+
+    if (companyId) {
+      query = query.eq("auction_items.auction_periods.company_id", companyId);
+    }
+
+    const { data, error } = await query;
 
     setLoading(false);
 
@@ -65,7 +76,7 @@ export function BidderBidsPanel({
 
   useEffect(() => {
     loadBids();
-  }, [bidderId]);
+  }, [bidderId, companyId]);
 
   async function confirmDeleteBid() {
     if (!deleteTarget) return;
@@ -91,7 +102,11 @@ export function BidderBidsPanel({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="border-b border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4">
         <h2 className="font-semibold text-slate-900">Riwayat Penawaran</h2>
-        <p className="text-sm text-slate-500">{bids.length} penawaran tercatat</p>
+        <p className="text-sm text-slate-500">
+          {companyId
+            ? `${bids.length} penawaran pada barang perusahaan ini`
+            : `${bids.length} penawaran tercatat`}
+        </p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-5">
@@ -100,7 +115,11 @@ export function BidderBidsPanel({
         ) : bids.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Gavel className="h-10 w-10 text-slate-300" />
-            <p className="mt-3 text-sm text-slate-500">Belum ada penawaran dari bidder ini.</p>
+            <p className="mt-3 text-sm text-slate-500">
+              {companyId
+                ? "Belum ada penawaran bidder ini pada barang perusahaan ini."
+                : "Belum ada penawaran dari bidder ini."}
+            </p>
           </div>
         ) : (
           <div className="space-y-2">

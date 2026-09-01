@@ -9,6 +9,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BidderBidsPanel } from "@/components/admin/bidder-bids-panel";
 import { useAdminCompanyId } from "@/components/admin/admin-company-context";
+import {
+  countCompanyBidsByBidder,
+  fetchBidderIdsWithCompanyBids,
+} from "@/lib/admin-bidders";
 import { toast } from "sonner";
 import { Plus, Users, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -108,38 +112,63 @@ export default function BiddersMasterDetailPage() {
 
   const selectedBidder = bidders.find((bidder) => bidder.id === selectedId) ?? null;
 
-  async function loadBidCounts() {
-    const { data: bidders } = await supabase
-      .from("bidder_profiles")
-      .select("id")
-      .eq("company_id", companyId);
-    const bidderIds = (bidders ?? []).map((bidder) => bidder.id);
+  async function loadBidCounts(bidderIds: string[]) {
     if (bidderIds.length === 0) {
       setBidCountByBidder({});
       return;
     }
-    const { data } = await supabase
-      .from("bids")
-      .select("bidder_id")
-      .in("bidder_id", bidderIds);
-    const counts: Record<string, number> = {};
-    for (const row of data ?? []) {
-      counts[row.bidder_id] = (counts[row.bidder_id] ?? 0) + 1;
+
+    try {
+      const counts = await countCompanyBidsByBidder(supabase, companyId, bidderIds);
+      setBidCountByBidder(counts);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Gagal memuat jumlah penawaran"
+      );
+      setBidCountByBidder({});
     }
-    setBidCountByBidder(counts);
   }
 
   async function loadBidders() {
-    const { data } = await supabase
-      .from("bidder_profiles")
-      .select("id, employee_nik, full_name, public_alias, is_active, created_at, updated_at, auth_user_id")
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: false });
-    const list = (data ?? []) as BidderProfile[];
-    setBidders(list);
-    await loadBidCounts();
-    if (list.length > 0 && !selectedId) {
-      setSelectedId(list[0].id);
+    try {
+      const bidderIds = await fetchBidderIdsWithCompanyBids(supabase, companyId);
+
+      if (bidderIds.length === 0) {
+        setBidders([]);
+        setBidCountByBidder({});
+        setSelectedId(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("bidder_profiles")
+        .select(
+          "id, employee_nik, full_name, public_alias, is_active, created_at, updated_at, auth_user_id"
+        )
+        .in("id", bidderIds)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      const list = (data ?? []) as BidderProfile[];
+      setBidders(list);
+      await loadBidCounts(bidderIds);
+
+      setSelectedId((current) => {
+        if (current && list.some((bidder) => bidder.id === current)) {
+          return current;
+        }
+        return list[0]?.id ?? null;
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Gagal memuat daftar bidder"
+      );
+      setBidders([]);
+      setBidCountByBidder({});
+      setSelectedId(null);
     }
   }
 
@@ -230,7 +259,7 @@ export default function BiddersMasterDetailPage() {
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Bidder</h1>
-          <p className="text-sm text-slate-500">Kelola peserta lelang dan riwayat penawaran</p>
+          <p className="text-sm text-slate-500">Kelola peserta lelang yang pernah mengajukan penawaran pada barang perusahaan ini</p>
         </div>
         <Button
           variant="primary"
@@ -259,7 +288,9 @@ export default function BiddersMasterDetailPage() {
             {bidders.length === 0 ? (
               <div className="flex flex-col items-center py-12 text-center">
                 <Users className="h-8 w-8 text-slate-300" />
-                <p className="mt-2 text-sm text-slate-500">Belum ada bidder</p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Belum ada bidder yang mengajukan penawaran pada barang perusahaan ini
+                </p>
               </div>
             ) : (
               bidders.map((bidder) => (
@@ -313,7 +344,8 @@ export default function BiddersMasterDetailPage() {
               <BidderBidsPanel
                 key={selectedBidder.id}
                 bidderId={selectedBidder.id}
-                onBidsChange={loadBidCounts}
+                companyId={companyId}
+                onBidsChange={() => loadBidders()}
               />
             </div>
           ) : (
@@ -356,7 +388,8 @@ export default function BiddersMasterDetailPage() {
               <BidderBidsPanel
                 key={selectedBidder.id}
                 bidderId={selectedBidder.id}
-                onBidsChange={loadBidCounts}
+                companyId={companyId}
+                onBidsChange={() => loadBidders()}
               />
             </div>
           ) : null}

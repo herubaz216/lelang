@@ -95,7 +95,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Kode OTP salah" }, { status: 400 });
     }
 
-    if (await isEmployeeNikRegistered(employeeNik)) {
+    const verifiedNik = otpRecord.employee_nik;
+
+    if (await isEmployeeNikRegistered(verifiedNik)) {
       return NextResponse.json(
         { error: "NIK sudah terdaftar di E-Lelang. Silakan login." },
         { status: 409 }
@@ -109,8 +111,8 @@ export async function POST(request: Request) {
         user_metadata: {
           name: fullName,
           full_name: fullName,
-          employee_nik: employeeNik,
-          username: employeeNik.toLowerCase(),
+          employee_nik: verifiedNik,
+          username: verifiedNik.toLowerCase(),
           role: "bidder",
         },
       });
@@ -122,7 +124,10 @@ export async function POST(request: Request) {
           { status: 409 }
         );
       }
-      return NextResponse.json({ error: createError.message }, { status: 400 });
+      const message = createError.message.toLowerCase().includes("database")
+        ? "Gagal membuat akun. Silakan coba lagi atau hubungi admin."
+        : createError.message;
+      return NextResponse.json({ error: message }, { status: 400 });
     }
 
     await admin.from("registration_otps").delete().eq("id", otpRecord.id);
