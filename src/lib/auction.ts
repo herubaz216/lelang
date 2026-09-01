@@ -16,6 +16,17 @@ export function isPeriodClosed(
   return period.status === "finished" || period.status === "cancelled";
 }
 
+export function isPeriodArchived(
+  period: Pick<AuctionPeriod, "status"> | null | undefined
+): boolean {
+  if (!period) return true;
+  return (
+    period.status === "finished" ||
+    period.status === "cancelled" ||
+    period.status === "archived"
+  );
+}
+
 export function getPeriodStatusLabel(
   period: Pick<AuctionPeriod, "status"> | null | undefined
 ): string {

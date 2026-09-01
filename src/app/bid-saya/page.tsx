@@ -8,6 +8,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Badge } from "@/components/ui/badge";
 import { formatRupiah, formatDateTime } from "@/lib/format";
+import { isPeriodArchived } from "@/lib/auction";
 import { Gavel, Package, ArrowRight } from "lucide-react";
 
 type MyBid = {
@@ -102,22 +103,53 @@ export default function BidSayaPage() {
         .eq("bidder_id", bidder.id)
         .order("created_at", { ascending: false });
 
-      const list = bidData ?? [];
-      setBids(list);
+      const allBids = bidData ?? [];
 
-      if (list.length > 0) {
-        const itemIds = [...new Set(list.map((b) => b.item_id))];
-        const { data: itemData } = await supabase
-          .from("auction_items")
-          .select("id, lot_number, item_name, starting_price, current_price")
-          .in("id", itemIds);
-
-        const map: Record<string, ItemInfo> = {};
-        for (const item of itemData ?? []) {
-          map[item.id] = item;
-        }
-        setItems(map);
+      if (allBids.length === 0) {
+        setBids([]);
+        setLoading(false);
+        return;
       }
+
+      const itemIds = [...new Set(allBids.map((bid) => bid.item_id))];
+      const { data: itemData } = await supabase
+        .from("auction_items")
+        .select("id, lot_number, item_name, starting_price, current_price, period_id")
+        .in("id", itemIds);
+
+      const periodIds = [...new Set((itemData ?? []).map((item) => item.period_id))];
+      const { data: periodData } = periodIds.length
+        ? await supabase
+            .from("auction_periods")
+            .select("id, status")
+            .in("id", periodIds)
+        : { data: [] as { id: string; status: string }[] };
+
+      const periodStatusById = new Map(
+        (periodData ?? []).map((period) => [period.id, period.status])
+      );
+
+      const visibleItemIds = new Set<string>();
+      const map: Record<string, ItemInfo> = {};
+
+      for (const item of itemData ?? []) {
+        const periodStatus = periodStatusById.get(item.period_id);
+        if (isPeriodArchived(periodStatus ? { status: periodStatus } : null)) {
+          continue;
+        }
+
+        visibleItemIds.add(item.id);
+        map[item.id] = {
+          id: item.id,
+          lot_number: item.lot_number,
+          item_name: item.item_name,
+          starting_price: item.starting_price,
+          current_price: item.current_price,
+        };
+      }
+
+      setBids(allBids.filter((bid) => visibleItemIds.has(bid.item_id)));
+      setItems(map);
 
       setLoading(false);
     }

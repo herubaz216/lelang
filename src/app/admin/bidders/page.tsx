@@ -255,7 +255,7 @@ export default function BiddersMasterDetailPage() {
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex flex-col lg:min-h-0 lg:flex-1">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Bidder</h1>
@@ -272,19 +272,19 @@ export default function BiddersMasterDetailPage() {
         </Button>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row lg:overflow-hidden">
+      <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row lg:overflow-hidden">
         <div
           className={cn(
-            "flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-white lg:w-80 lg:shrink-0",
+            "flex flex-col rounded-2xl border border-[var(--border)] bg-white lg:w-80 lg:shrink-0 lg:overflow-hidden",
             mobileView === "detail" ? "hidden lg:flex" : "flex",
-            "max-h-[70vh] lg:max-h-none lg:min-h-[480px]"
+            "lg:min-h-[480px]"
           )}
         >
           <div className="border-b border-[var(--border)] px-4 py-3">
             <p className="text-sm font-semibold text-slate-900">Daftar Bidder</p>
             <p className="text-xs text-slate-500">{bidders.length} bidder</p>
           </div>
-          <div className="flex-1 overflow-y-auto p-2">
+          <div className="p-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             {bidders.length === 0 ? (
               <div className="flex flex-col items-center py-12 text-center">
                 <Users className="h-8 w-8 text-slate-300" />
@@ -334,7 +334,7 @@ export default function BiddersMasterDetailPage() {
           {rightPanel === "bidder-form" ? (
             <div className="overflow-y-auto p-4 sm:p-5">{bidderFormContent}</div>
           ) : selectedBidder ? (
-            <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex flex-col lg:min-h-0 lg:flex-1">
               <div className="border-b border-[var(--border)] px-4 py-3 sm:px-5">
                 <p className="font-semibold text-slate-900">{selectedBidder.full_name}</p>
                 <p className="text-sm text-slate-500">
@@ -357,7 +357,7 @@ export default function BiddersMasterDetailPage() {
 
         <div
           className={cn(
-            "overflow-hidden rounded-2xl border border-[var(--border)] bg-white lg:hidden",
+            "rounded-2xl border border-[var(--border)] bg-white lg:hidden",
             mobileView === "list" && "hidden"
           )}
         >

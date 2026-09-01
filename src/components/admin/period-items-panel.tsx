@@ -739,7 +739,7 @@ export function PeriodItemsPanel({
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex flex-col lg:min-h-0 lg:flex-1">
       <div className="flex flex-col gap-3 border-b border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
@@ -779,7 +779,7 @@ export function PeriodItemsPanel({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+      <div className="p-4 sm:p-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
         {items.length === 0 && !addingNew ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Package className="h-10 w-10 text-slate-300" />

@@ -49,7 +49,7 @@ export function AdminShell({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--background)]">
+    <div className="flex h-[100dvh] overflow-hidden bg-[var(--background)]">
       {mobileOpen && (
         <button
           type="button"
@@ -67,7 +67,7 @@ export function AdminShell({
         onMobileClose={() => setMobileOpen(false)}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-[var(--border)] bg-white px-3 sm:px-4">
           <button
             type="button"
@@ -99,7 +99,7 @@ export function AdminShell({
           </span>
         </header>
 
-        <main className="flex min-h-0 flex-1 flex-col overflow-auto p-4 sm:p-6 lg:p-8">
+        <main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>

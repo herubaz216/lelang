@@ -131,7 +131,7 @@ export function AllUsersPanel() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex flex-col lg:min-h-0 lg:flex-1">
       <div className="mb-4">
         <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Semua User</h1>
         <p className="text-sm text-slate-500">
@@ -151,12 +151,12 @@ export function AllUsersPanel() {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row lg:overflow-hidden">
+      <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row lg:overflow-hidden">
         <div
           className={cn(
-            "flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-white lg:w-[22rem] lg:shrink-0 xl:w-96",
+            "flex flex-col rounded-2xl border border-[var(--border)] bg-white lg:w-[22rem] lg:shrink-0 lg:overflow-hidden xl:w-96",
             mobileView === "detail" ? "hidden lg:flex" : "flex",
-            "max-h-[70vh] lg:max-h-none lg:min-h-[520px]"
+            "lg:min-h-[520px]"
           )}
         >
           <div className="border-b border-[var(--border)] px-4 py-3">
@@ -164,7 +164,7 @@ export function AllUsersPanel() {
             <p className="text-xs text-slate-500">{total} user terdaftar</p>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2">
+          <div className="p-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             {loading ? (
               <p className="px-3 py-8 text-center text-sm text-slate-500">Memuat user...</p>
             ) : users.length === 0 ? (
@@ -244,7 +244,7 @@ export function AllUsersPanel() {
 
         <div
           className={cn(
-            "overflow-hidden rounded-2xl border border-[var(--border)] bg-white lg:hidden",
+            "rounded-2xl border border-[var(--border)] bg-white lg:hidden",
             mobileView === "list" && "hidden"
           )}
         >

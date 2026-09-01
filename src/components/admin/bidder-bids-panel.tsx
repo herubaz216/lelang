@@ -116,7 +116,7 @@ export function BidderBidsPanel({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex flex-col lg:min-h-0 lg:flex-1">
       <div className="border-b border-[var(--border)] px-4 py-3 sm:px-5 sm:py-4">
         <h2 className="font-semibold text-slate-900">Riwayat Penawaran</h2>
         <p className="text-sm text-slate-500">
@@ -126,7 +126,7 @@ export function BidderBidsPanel({
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+      <div className="p-4 sm:p-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
         {loading ? (
           <p className="text-sm text-slate-500">Memuat penawaran...</p>
         ) : bidsTotal === 0 ? (
