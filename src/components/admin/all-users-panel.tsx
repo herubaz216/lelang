@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
-import { BidderBidsPanel } from "@/components/admin/bidder-bids-panel";
 import { formatDateTime } from "@/lib/format";
 import type { RegisteredUserRow } from "@/lib/admin-users";
 import { toast } from "sonner";
@@ -235,7 +234,6 @@ export function AllUsersPanel() {
               <div className="overflow-y-auto p-4 sm:p-5">
                 <UserDetail user={selectedUser} />
               </div>
-              <BidderBidsPanel bidderId={selectedUser.id} />
             </div>
           ) : (
             <div className="flex flex-1 items-center justify-center p-6 text-center text-slate-500">
@@ -275,7 +273,6 @@ export function AllUsersPanel() {
               <div className="p-4">
                 <UserDetail user={selectedUser} />
               </div>
-              <BidderBidsPanel bidderId={selectedUser.id} />
             </div>
           )}
         </div>
