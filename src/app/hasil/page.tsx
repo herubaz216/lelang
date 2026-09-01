@@ -3,9 +3,10 @@ import Link from "next/link";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { fetchFinishedPeriods, fetchWinners } from "@/lib/winners";
+import { fetchActiveBankAccounts } from "@/lib/bank-accounts";
 import { formatRupiah, getPhotoUrl } from "@/lib/format";
 import { StripedHeroBackground } from "@/components/striped-hero-background";
-import { Trophy, Package, ChevronRight } from "lucide-react";
+import { Trophy, Package, ChevronRight, Landmark } from "lucide-react";
 
 export default async function HasilPage({
   searchParams,
@@ -15,6 +16,8 @@ export default async function HasilPage({
   const { period: periodId } = await searchParams;
   const periods = await fetchFinishedPeriods();
   const { period, rows } = await fetchWinners(periodId);
+  const bankAccounts =
+    period?.status === "finished" ? await fetchActiveBankAccounts() : [];
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -77,6 +80,43 @@ export default async function HasilPage({
                 <p className="font-semibold text-slate-900">{period.title}</p>
                 <p className="text-sm text-slate-500">{period.code}</p>
               </div>
+
+              {bankAccounts.length > 0 && (
+                <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 sm:p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100">
+                      <Landmark className="h-5 w-5 text-emerald-700" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h2 className="font-semibold text-slate-900">
+                        Informasi Pembayaran
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Silakan transfer ke rekening berikut untuk menyelesaikan pembayaran
+                        lelang.
+                      </p>
+                      <div className="mt-4 space-y-3">
+                        {bankAccounts.map((account) => (
+                          <div
+                            key={account.id}
+                            className="rounded-xl border border-emerald-200/80 bg-white px-4 py-3"
+                          >
+                            <p className="font-mono text-base font-semibold text-slate-900">
+                              {account.account_number}
+                            </p>
+                            <p className="mt-0.5 text-sm font-medium text-slate-800">
+                              a.n. {account.account_holder}
+                            </p>
+                            {account.notes && (
+                              <p className="mt-1 text-sm text-slate-500">{account.notes}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {rows.length === 0 ? (
                 <div className="rounded-2xl border border-[var(--border)] bg-white py-16 text-center text-slate-500">

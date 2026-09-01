@@ -9,6 +9,42 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      auction_bank_accounts: {
+        Row: {
+          account_holder: string;
+          account_number: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          is_active: boolean;
+          notes: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          account_holder: string;
+          account_number: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          is_active?: boolean;
+          notes?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          account_holder?: string;
+          account_number?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          is_active?: boolean;
+          notes?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       auction_items: {
         Row: {
           bid_increment: number;
@@ -367,6 +403,7 @@ export type Database = {
   };
 };
 
+export type AuctionBankAccount = Database["public"]["Tables"]["auction_bank_accounts"]["Row"];
 export type AuctionItem = Database["public"]["Tables"]["auction_items"]["Row"];
 export type AuctionPeriod = Database["public"]["Tables"]["auction_periods"]["Row"];
 export type BidderProfile = Database["public"]["Tables"]["bidder_profiles"]["Row"];

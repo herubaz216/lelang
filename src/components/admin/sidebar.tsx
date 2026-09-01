@@ -9,15 +9,22 @@ import {
   FileText,
   LogOut,
   Gavel,
+  Landmark,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { Profile } from "@/lib/database.types";
+import { Profile, UserRole } from "@/lib/database.types";
 
-const navItems = [
+const navItems: {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  roles?: UserRole[];
+}[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/periods", label: "Periode & Barang", icon: Calendar },
   { href: "/admin/bidders", label: "Bidder", icon: Users },
+  { href: "/admin/rekening", label: "Rekening", icon: Landmark, roles: ["accounting"] },
   { href: "/admin/reports", label: "Laporan", icon: FileText },
 ];
 
@@ -70,7 +77,9 @@ export function AdminSidebar({
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-2">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {navItems
+          .filter((item) => !item.roles || item.roles.includes(profile.role as UserRole))
+          .map(({ href, label, icon: Icon }) => {
           const isActive =
             href === "/admin"
               ? pathname === "/admin"

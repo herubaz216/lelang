@@ -1,0 +1,329 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { AuctionBankAccount } from "@/lib/database.types";
+import { Button } from "@/components/ui/button";
+import { Input, Label, Textarea } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "sonner";
+import { Plus, Pencil, Trash2, Landmark } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const emptyForm = {
+  account_number: "",
+  account_holder: "",
+  notes: "",
+  is_active: true,
+};
+
+type FormData = typeof emptyForm;
+
+function AccountForm({
+  form,
+  setForm,
+  loading,
+  title,
+  onSubmit,
+  onCancel,
+}: {
+  form: FormData;
+  setForm: React.Dispatch<React.SetStateAction<FormData>>;
+  loading: boolean;
+  title: string;
+  onSubmit: (e: React.FormEvent) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-indigo-200 bg-indigo-50/30 p-4">
+      <p className="mb-3 text-sm font-semibold text-slate-900">{title}</p>
+      <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label>Nomor Rekening</Label>
+          <Input
+            value={form.account_number}
+            onChange={(e) => setForm({ ...form, account_number: e.target.value })}
+            placeholder="1234567890"
+            required
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Atas Nama</Label>
+          <Input
+            value={form.account_holder}
+            onChange={(e) => setForm({ ...form, account_holder: e.target.value })}
+            placeholder="PT AMS Group"
+            required
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Keterangan</Label>
+          <Textarea
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            placeholder="Contoh: Bank BCA Cabang Sudirman"
+          />
+        </div>
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-[var(--border)] bg-white px-3 py-2.5 sm:col-span-2">
+          <div>
+            <p className="text-sm font-medium text-slate-900">Aktif untuk Lelang</p>
+            <p className="text-xs text-slate-500">
+              Rekening aktif akan ditampilkan ke pemenang setelah lelang ditutup
+            </p>
+          </div>
+          <Switch
+            checked={form.is_active}
+            onCheckedChange={(checked) => setForm({ ...form, is_active: checked })}
+          />
+        </div>
+        <div className="flex gap-2 sm:col-span-2">
+          <Button type="submit" variant="primary" size="sm" disabled={loading}>
+            {loading ? "Menyimpan..." : "Simpan"}
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+            Batal
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function AccountRow({
+  account,
+  onEdit,
+  onDelete,
+  disabled,
+}: {
+  account: AuctionBankAccount;
+  onEdit: (account: AuctionBankAccount) => void;
+  onDelete: (account: AuctionBankAccount) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-start justify-between gap-3 rounded-xl border border-[var(--border)] bg-white p-4",
+        disabled && "opacity-50"
+      )}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <Landmark className="h-4 w-4 text-[var(--primary)]" />
+          <span className="font-mono text-sm font-semibold text-slate-900">
+            {account.account_number}
+          </span>
+          <Badge status={account.is_active ? "active" : "cancelled"} />
+        </div>
+        <p className="mt-1 font-medium text-slate-900">{account.account_holder}</p>
+        {account.notes && (
+          <p className="mt-1 text-sm text-slate-500">{account.notes}</p>
+        )}
+      </div>
+      <div className="flex shrink-0 gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={() => onEdit(account)}
+          disabled={disabled}
+          aria-label="Edit rekening"
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+          onClick={() => onDelete(account)}
+          disabled={disabled}
+          aria-label="Hapus rekening"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export default function RekeningPage() {
+  const [accounts, setAccounts] = useState<AuctionBankAccount[]>([]);
+  const [form, setForm] = useState(emptyForm);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [addingNew, setAddingNew] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AuctionBankAccount | null>(null);
+  const supabase = createClient();
+
+  const isFormOpen = addingNew || editingId !== null;
+
+  async function load() {
+    const { data } = await supabase
+      .from("auction_bank_accounts")
+      .select("*")
+      .order("created_at", { ascending: true });
+    setAccounts(data ?? []);
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  function startAdd() {
+    setEditingId(null);
+    setForm(emptyForm);
+    setAddingNew(true);
+  }
+
+  function startEdit(account: AuctionBankAccount) {
+    setAddingNew(false);
+    setEditingId(account.id);
+    setForm({
+      account_number: account.account_number,
+      account_holder: account.account_holder,
+      notes: account.notes ?? "",
+      is_active: account.is_active,
+    });
+  }
+
+  function cancelForm() {
+    setAddingNew(false);
+    setEditingId(null);
+    setForm(emptyForm);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+
+    const payload = {
+      account_number: form.account_number.trim(),
+      account_holder: form.account_holder.trim(),
+      notes: form.notes.trim() || null,
+      is_active: form.is_active,
+    };
+
+    const { error } = editingId
+      ? await supabase.from("auction_bank_accounts").update(payload).eq("id", editingId)
+      : await supabase.from("auction_bank_accounts").insert(payload);
+
+    setLoading(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success(editingId ? "Rekening diperbarui" : "Rekening ditambahkan");
+    cancelForm();
+    load();
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+
+    setDeleting(true);
+    const { error } = await supabase
+      .from("auction_bank_accounts")
+      .delete()
+      .eq("id", deleteTarget.id);
+
+    setDeleting(false);
+    setDeleteTarget(null);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    if (editingId === deleteTarget.id) {
+      cancelForm();
+    }
+
+    toast.success("Rekening dihapus");
+    load();
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Master Rekening</h1>
+          <p className="text-sm text-slate-500">
+            Kelola rekening pembayaran untuk pemenang lelang
+          </p>
+        </div>
+        {!isFormOpen && (
+          <Button variant="primary" size="sm" className="w-full sm:w-auto" onClick={startAdd}>
+            <Plus className="h-4 w-4" />
+            Tambah Rekening
+          </Button>
+        )}
+      </div>
+
+      {accounts.length === 0 && !addingNew ? (
+        <div className="flex flex-col items-center rounded-2xl border border-dashed border-slate-200 bg-white py-16 text-center">
+          <Landmark className="h-10 w-10 text-slate-300" />
+          <p className="mt-3 text-sm text-slate-500">Belum ada rekening terdaftar.</p>
+          <Button variant="primary" size="sm" className="mt-4" onClick={startAdd}>
+            <Plus className="h-4 w-4" />
+            Tambah Rekening
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {accounts.map((account) =>
+            editingId === account.id ? (
+              <AccountForm
+                key={account.id}
+                form={form}
+                setForm={setForm}
+                loading={loading}
+                title={`Edit Rekening — ${account.account_number}`}
+                onSubmit={handleSubmit}
+                onCancel={cancelForm}
+              />
+            ) : (
+              <AccountRow
+                key={account.id}
+                account={account}
+                onEdit={startEdit}
+                onDelete={setDeleteTarget}
+                disabled={isFormOpen}
+              />
+            )
+          )}
+
+          {addingNew && (
+            <AccountForm
+              form={form}
+              setForm={setForm}
+              loading={loading}
+              title="Tambah Rekening Baru"
+              onSubmit={handleSubmit}
+              onCancel={cancelForm}
+            />
+          )}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Hapus Rekening"
+        message={
+          deleteTarget
+            ? `Yakin ingin menghapus rekening ${deleteTarget.account_number} a.n. ${deleteTarget.account_holder}?`
+            : ""
+        }
+        confirmLabel="Hapus"
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => !deleting && setDeleteTarget(null)}
+      />
+    </div>
+  );
+}
