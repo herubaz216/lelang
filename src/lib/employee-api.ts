@@ -5,6 +5,7 @@ export type EmployeeLookupResult =
   | { ok: false; error: string; status?: number };
 
 const NAME_KEYS = [
+  "NamaLengkapStr",
   "nama",
   "nama_lengkap",
   "namaLengkap",
@@ -16,6 +17,7 @@ const NAME_KEYS = [
 ];
 
 const NIK_KEYS = [
+  "NomorIndukStr",
   "nomor_induk",
   "nomorInduk",
   "nik",
@@ -55,9 +57,11 @@ function extractEmployee(
 
   const root = payload as EmployeeApiPayload;
   const nested =
-    root.data && typeof root.data === "object"
-      ? (root.data as EmployeeApiPayload)
-      : null;
+    root.transactionData && typeof root.transactionData === "object"
+      ? (root.transactionData as EmployeeApiPayload)
+      : root.data && typeof root.data === "object"
+        ? (root.data as EmployeeApiPayload)
+        : null;
 
   const fullName = pickName(nested ?? {}) || pickName(root);
   if (!fullName) return null;
