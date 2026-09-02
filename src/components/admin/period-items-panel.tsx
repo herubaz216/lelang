@@ -570,24 +570,9 @@ export function PeriodItemsPanel({
     }
 
     if (editingId) {
-      const { data: existingItem, error: fetchError } = await supabase
-        .from("auction_items")
-        .select("current_price")
-        .eq("id", editingId)
-        .maybeSingle();
-
-      if (fetchError || !existingItem) {
-        setLoading(false);
-        toast.error(fetchError?.message ?? "Barang tidak ditemukan");
-        return;
-      }
-
       const { error } = await supabase
         .from("auction_items")
-        .update({
-          ...basePayload,
-          current_price: existingItem.current_price,
-        })
+        .update(basePayload)
         .eq("id", editingId);
       setLoading(false);
       if (error) {
