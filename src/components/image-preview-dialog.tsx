@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import Image from "next/image";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { getPhotoUrl } from "@/lib/format";
 
@@ -105,16 +104,14 @@ export function ImagePreviewDialog({
         )}
 
         <div
-          className="relative h-full w-full max-h-[calc(100dvh-7rem)] max-w-5xl"
+          className="relative flex h-full w-full max-h-[calc(100dvh-7rem)] max-w-6xl items-center justify-center"
           onClick={(event) => event.stopPropagation()}
         >
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src={getPhotoUrl(photo.storage_path)}
             alt={`${alt} - foto ${index + 1}`}
-            fill
-            className="object-contain"
-            sizes="(max-width: 1024px) 100vw, 80vw"
-            priority
+            className="max-h-full max-w-full object-contain"
           />
         </div>
 
