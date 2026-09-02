@@ -64,7 +64,7 @@ export function AdminSidebar({
   return (
     <aside
       className={cn(
-        "fixed inset-y-0 left-0 z-50 flex h-screen flex-col border-r border-[var(--border)] bg-white transition-all duration-300 ease-in-out",
+        "fixed inset-y-0 left-0 z-50 grid h-[100dvh] max-h-[100dvh] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden border-r border-[var(--border)] bg-white transition-all duration-300 ease-in-out",
         "lg:sticky lg:top-0 lg:z-auto lg:shrink-0 lg:translate-x-0",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
         collapsed ? "w-[4.5rem]" : "w-64"
@@ -84,7 +84,7 @@ export function AdminSidebar({
         )}
       </div>
 
-      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
+      <nav className="space-y-1 overflow-y-auto overscroll-y-contain p-2">
         {navItems
           .filter(
             (item) =>
@@ -119,7 +119,7 @@ export function AdminSidebar({
 
       <div
         className={cn(
-          "mt-auto shrink-0 border-t border-[var(--border)] bg-white p-2",
+          "border-t border-[var(--border)] bg-white p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]",
           collapsed && "flex flex-col items-center"
         )}
       >
