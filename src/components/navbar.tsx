@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Gavel, Menu } from "lucide-react";
 import { NavbarAuth } from "@/components/navbar-auth";
 import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
+import { PushNotificationPrompt } from "@/components/push-notification-prompt";
 import { createClient } from "@/lib/supabase/client";
 import { Profile } from "@/lib/database.types";
 import { cn } from "@/lib/utils";
@@ -136,7 +137,10 @@ function NavbarContent() {
             </nav>
           </div>
 
-          <NavbarAuth profile={profile} />
+          <div className="flex items-center gap-2">
+            <PushNotificationPrompt companyCode={companyQuery} variant="navbar" />
+            <NavbarAuth profile={profile} />
+          </div>
         </div>
       </header>
 

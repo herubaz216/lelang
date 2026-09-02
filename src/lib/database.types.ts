@@ -458,6 +458,44 @@ export type Database = {
         };
         Relationships: [];
       };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          company_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          user_agent: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          user_agent?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          endpoint?: string;
+          p256dh?: string;
+          auth?: string;
+          user_agent?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -561,6 +599,7 @@ export type BidderProfile = Database["public"]["Tables"]["bidder_profiles"]["Row
 export type Bid = Database["public"]["Tables"]["bids"]["Row"];
 export type ItemPhoto = Database["public"]["Tables"]["item_photos"]["Row"];
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+export type PushSubscription = Database["public"]["Tables"]["push_subscriptions"]["Row"];
 export type AuditLog = Database["public"]["Tables"]["audit_logs"]["Row"];
 export type BidFeedEntry = Database["public"]["Functions"]["get_public_bid_feed"]["Returns"][number];
 export type UserRole = "ga" | "accounting" | "ga_accounting" | "bidder";

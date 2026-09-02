@@ -15,6 +15,7 @@ import { CountdownTimer } from "@/components/countdown-timer";
 import { Package, Gavel, Timer, Lock, Trophy } from "lucide-react";
 import { CategoryFilter } from "@/components/category-filter";
 import { StripedHeroBackground } from "@/components/striped-hero-background";
+import { PushNotificationPrompt } from "@/components/push-notification-prompt";
 
 const PAGE_SIZE = 12;
 
@@ -239,6 +240,14 @@ export function HomeCatalog({
               : `Belum ada periode lelang untuk ${company.short_name}`}
           </p>
         </div>
+
+        {period && biddingOpen && (
+          <PushNotificationPrompt
+            companyCode={company.code}
+            variant="banner"
+            className="mb-6"
+          />
+        )}
 
         {!period ? (
           <div className="flex flex-col items-center rounded-2xl border border-dashed border-slate-200 bg-white py-20 text-center">
