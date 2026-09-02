@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   clearPushSubscribed,
   isPushSubscribed,
-  markPushPromptSeen,
   markPushSubscribed,
 } from "@/lib/push-prompt-storage";
 import {
@@ -68,7 +67,6 @@ export function usePushNotifications() {
       setPermission(nextPermission);
 
       if (nextPermission !== "granted") {
-        markPushPromptSeen();
         return false;
       }
 

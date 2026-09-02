@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Bell, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
@@ -9,12 +10,9 @@ import {
   isPushSupported,
   isStandalonePwa,
 } from "@/lib/push-client";
-import {
-  markPushPromptSeen,
-  shouldAutoPromptPush,
-} from "@/lib/push-prompt-storage";
 
 export function PushNotificationAutoPrompt() {
+  const pathname = usePathname();
   const {
     permission,
     subscribed,
@@ -27,15 +25,16 @@ export function PushNotificationAutoPrompt() {
 
   useEffect(() => {
     if (!ready || !isPushSupported()) return;
-    if (permission === "denied" || subscribed) return;
-    if (!shouldAutoPromptPush()) return;
+    if (permission === "denied" || subscribed) {
+      setOpen(false);
+      return;
+    }
 
     const timer = window.setTimeout(() => setOpen(true), 1200);
     return () => window.clearTimeout(timer);
-  }, [ready, permission, subscribed]);
+  }, [ready, permission, subscribed, pathname]);
 
   function dismiss() {
-    markPushPromptSeen();
     setOpen(false);
   }
 
