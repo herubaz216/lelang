@@ -45,7 +45,17 @@ export function urlBase64ToUint8Array(base64String: string) {
 }
 
 export async function registerServiceWorker() {
-  return navigator.serviceWorker.register("/sw.js", { scope: "/" });
+  const registration = await navigator.serviceWorker.register("/sw.js", {
+    scope: "/",
+    updateViaCache: "none",
+  });
+
+  if (registration.waiting) {
+    registration.waiting.postMessage({ type: "SKIP_WAITING" });
+  }
+
+  await navigator.serviceWorker.ready;
+  return registration;
 }
 
 export async function getExistingPushSubscription() {

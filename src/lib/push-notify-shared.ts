@@ -62,6 +62,8 @@ export async function sendPushToCompany(
     } catch (error) {
       if (isExpiredPushSubscriptionError(error)) {
         await deletePushSubscriptionByEndpoint(subscription.endpoint);
+      } else {
+        console.error("[push] gagal kirim ke endpoint:", subscription.endpoint, error);
       }
     }
   }
