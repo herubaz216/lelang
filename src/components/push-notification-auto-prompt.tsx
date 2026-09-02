@@ -1,61 +1,95 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { Bell, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { isPushSubscribed } from "@/lib/push-prompt-storage";
 import {
+  canEnablePushNotifications,
+  canShowPushOptIn,
   isIosDevice,
-  isPushSupported,
   isStandalonePwa,
 } from "@/lib/push-client";
 
+const RESHOW_AFTER_DISMISS_MS = 10000;
+
 export function PushNotificationAutoPrompt() {
   const pathname = usePathname();
-  const {
-    permission,
-    subscribed,
-    loading,
-    ready,
-    enableNotifications,
-  } = usePushNotifications();
-
+  const { permission, loading, ready, enableNotifications } = usePushNotifications();
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!ready || !isPushSupported()) return;
-    if (permission === "denied" || subscribed) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!ready || !canShowPushOptIn()) {
+      setOpen(false);
+      return;
+    }
+
+    if (permission === "denied" || isPushSubscribed()) {
       setOpen(false);
       return;
     }
 
     const timer = window.setTimeout(() => setOpen(true), 1200);
     return () => window.clearTimeout(timer);
-  }, [ready, permission, subscribed, pathname]);
+  }, [ready, permission, pathname]);
+
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState !== "visible") return;
+      if (!ready || !canShowPushOptIn()) return;
+      if (permission === "denied" || isPushSubscribed()) return;
+
+      window.setTimeout(() => setOpen(true), 800);
+    }
+
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [ready, permission]);
 
   function dismiss() {
     setOpen(false);
+
+    window.setTimeout(() => {
+      if (!canShowPushOptIn()) return;
+      if (Notification.permission === "denied" || isPushSubscribed()) return;
+      setOpen(true);
+    }, RESHOW_AFTER_DISMISS_MS);
   }
 
   async function handleEnable() {
-    await enableNotifications();
-    setOpen(false);
+    if (!canEnablePushNotifications()) {
+      dismiss();
+      return;
+    }
+
+    const success = await enableNotifications();
+    if (success) {
+      setOpen(false);
+    }
   }
 
-  if (!open || permission === "unsupported") {
+  if (!mounted || !open) {
     return null;
   }
 
   const showIosHint = isIosDevice() && !isStandalonePwa();
+  const iosOnly = showIosHint && !canEnablePushNotifications();
 
-  return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-4 sm:items-center">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="push-auto-prompt-title"
-        className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-white p-5 shadow-xl sm:p-6"
+        className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-white p-5 shadow-2xl sm:p-6"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50">
@@ -102,10 +136,11 @@ export function PushNotificationAutoPrompt() {
             ) : (
               <Bell className="h-4 w-4" />
             )}
-            Aktifkan Notifikasi
+            {iosOnly ? "Mengerti" : "Aktifkan Notifikasi"}
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

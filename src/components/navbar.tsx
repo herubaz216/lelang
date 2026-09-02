@@ -7,7 +7,6 @@ import { Gavel, Menu } from "lucide-react";
 import { NavbarAuth } from "@/components/navbar-auth";
 import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
 import { PushNotificationPrompt } from "@/components/push-notification-prompt";
-import { PushNotificationAutoPrompt } from "@/components/push-notification-auto-prompt";
 import { createClient } from "@/lib/supabase/client";
 import { Profile } from "@/lib/database.types";
 import { cn } from "@/lib/utils";
@@ -151,8 +150,6 @@ function NavbarContent() {
         profile={profile}
         companyCode={companyQuery}
       />
-
-      <PushNotificationAutoPrompt />
     </>
   );
 }

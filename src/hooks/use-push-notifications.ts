@@ -7,6 +7,7 @@ import {
   markPushSubscribed,
 } from "@/lib/push-prompt-storage";
 import {
+  canShowPushOptIn,
   getExistingPushSubscription,
   isPushSupported,
   registerServiceWorker,
@@ -20,9 +21,18 @@ export function usePushNotifications() {
   const [ready, setReady] = useState(false);
 
   const refreshState = useCallback(async () => {
-    if (!isPushSupported()) {
+    if (!canShowPushOptIn()) {
       setPermission("unsupported");
       setSubscribed(false);
+      setReady(true);
+      return;
+    }
+
+    if (!isPushSupported()) {
+      setPermission(
+        typeof Notification !== "undefined" ? Notification.permission : "unsupported"
+      );
+      setSubscribed(isPushSubscribed());
       setReady(true);
       return;
     }
@@ -31,10 +41,9 @@ export function usePushNotifications() {
 
     try {
       await registerServiceWorker();
-      const subscription = await getExistingPushSubscription();
-      setSubscribed(Boolean(subscription) && isPushSubscribed());
+      setSubscribed(isPushSubscribed());
     } catch {
-      setSubscribed(false);
+      setSubscribed(isPushSubscribed());
     } finally {
       setReady(true);
     }

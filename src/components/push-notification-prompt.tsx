@@ -3,7 +3,7 @@
 import { Bell, BellOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
-import { isIosDevice, isPushSupported, isStandalonePwa } from "@/lib/push-client";
+import { canShowPushOptIn, isIosDevice, isStandalonePwa } from "@/lib/push-client";
 import { cn } from "@/lib/utils";
 
 type PushNotificationPromptProps = {
@@ -24,7 +24,7 @@ export function PushNotificationPrompt({
     disableNotifications,
   } = usePushNotifications();
 
-  if (!ready || permission === "unsupported") {
+  if (!ready || !canShowPushOptIn()) {
     return null;
   }
 

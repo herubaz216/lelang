@@ -7,6 +7,16 @@ export function isPushSupported() {
   );
 }
 
+export function canShowPushOptIn() {
+  if (typeof window === "undefined") return false;
+  if (isIosDevice() && !isStandalonePwa()) return true;
+  return isPushSupported();
+}
+
+export function canEnablePushNotifications() {
+  return isPushSupported();
+}
+
 export function isIosDevice() {
   if (typeof navigator === "undefined") return false;
   return /iPad|iPhone|iPod/.test(navigator.userAgent);
