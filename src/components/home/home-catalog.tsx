@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuctionPeriod, Company } from "@/lib/database.types";
 import { withCompanyQuery } from "@/lib/company-utils";
 import { ItemWithPhotos } from "@/lib/items";
@@ -28,6 +28,7 @@ export function HomeCatalog({
   initialItems,
   initialHasMore,
   totalItems,
+  initialCategory,
 }: {
   company: Company;
   period: AuctionPeriod | null;
@@ -35,8 +36,11 @@ export function HomeCatalog({
   initialItems: ItemWithPhotos[];
   initialHasMore: boolean;
   totalItems: number;
+  initialCategory: string;
 }) {
-  const [activeCategory, setActiveCategory] = useState("all");
+  const [activeCategory, setActiveCategory] = useState(
+    initialCategory || categories[0]?.name || ""
+  );
   const [items, setItems] = useState(initialItems);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loading, setLoading] = useState(false);
@@ -46,15 +50,21 @@ export function HomeCatalog({
   const biddingOpen = isPeriodBiddingOpen(period);
   const periodClosed = isPeriodClosed(period);
   const statusLabel = getPeriodStatusLabel(period);
-  const hasCatalogItems = totalItems > 0;
+  const hasCatalogItems = useMemo(
+    () => categories.reduce((sum, category) => sum + category.count, 0) > 0,
+    [categories]
+  );
+  const activeCategoryInfo = categories.find((c) => c.name === activeCategory);
+  const activeCategoryCount = activeCategoryInfo?.count ?? 0;
 
   useEffect(() => {
-    setActiveCategory("all");
+    const nextCategory = initialCategory || categories[0]?.name || "";
+    setActiveCategory(nextCategory);
     setItems(initialItems);
     setHasMore(initialHasMore);
     setOffset(initialItems.length);
     skipCategoryFetch.current = true;
-  }, [company.id, period?.id, initialItems, initialHasMore]);
+  }, [company.id, period?.id, initialCategory, categories, initialItems, initialHasMore]);
 
   const loadMore = useCallback(
     async (reset = false) => {
@@ -236,7 +246,9 @@ export function HomeCatalog({
           <h2 className="text-2xl font-bold text-slate-900">Katalog Lelang</h2>
           <p className="mt-1 text-sm text-slate-500">
             {period
-              ? `${totalItems} barang tersedia dalam ${categories.length} kategori — ${company.short_name}`
+              ? activeCategory
+                ? `${activeCategoryCount} barang di kategori ${activeCategory} — ${company.short_name}`
+                : `${totalItems} barang tersedia — ${company.short_name}`
               : `Belum ada periode lelang untuk ${company.short_name}`}
           </p>
         </div>
@@ -269,17 +281,20 @@ export function HomeCatalog({
           </div>
         ) : (
           <>
-            <div className="mb-6">
-              <CategoryFilter
-                categories={categories}
-                activeCategory={activeCategory}
-                totalItems={totalItems}
-                onChange={setActiveCategory}
-              />
-            </div>
+            {categories.length > 0 && (
+              <div className="mb-6">
+                <CategoryFilter
+                  categories={categories}
+                  activeCategory={activeCategory}
+                  totalItems={totalItems}
+                  onChange={setActiveCategory}
+                  hideAll
+                />
+              </div>
+            )}
 
             {items.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4 lg:gap-6">
                 {items.map(({ item, photos }) => (
                   <div key={item.id} className="animate-in">
                     <LotCard item={item} photos={photos} biddingClosed={!biddingOpen} />
@@ -298,7 +313,7 @@ export function HomeCatalog({
             <div ref={sentinelRef} className="h-1" />
 
             {loading && (
-              <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3">
+              <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4 lg:gap-6">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="skeleton aspect-[3/4] rounded-xl sm:rounded-2xl" />
                 ))}

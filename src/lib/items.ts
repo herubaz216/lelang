@@ -37,7 +37,11 @@ export async function fetchItemsPage({
     .order("lot_number");
 
   if (category && category !== "all") {
-    query = query.eq("category", category);
+    if (category === "Lainnya") {
+      query = query.is("category", null);
+    } else {
+      query = query.eq("category", category);
+    }
   }
 
   const { data: auctionItems, count } = await query.range(

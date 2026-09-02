@@ -25,7 +25,7 @@ export function LotCard({
               alt={item.item_name}
               fill
               className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-              sizes="(max-width: 768px) 50vw, 33vw"
+              sizes="(max-width: 1024px) 50vw, 25vw"
             />
           ) : (
             <div className="flex h-full items-center justify-center">
@@ -47,9 +47,9 @@ export function LotCard({
 
         <div className="p-3 sm:p-5">
           {item.category && (
-            <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-[var(--primary)] sm:mb-1.5 sm:text-xs">
+            <span className="mb-1.5 inline-flex items-center rounded-full bg-violet-50 px-2.5 py-0.5 text-[10px] font-medium text-violet-700 ring-1 ring-violet-600/20 sm:mb-2 sm:text-xs">
               {item.category}
-            </p>
+            </span>
           )}
           <h3 className="line-clamp-2 text-sm font-semibold text-slate-900 transition-colors group-hover:text-[var(--primary)] sm:text-base">
             {item.item_name}

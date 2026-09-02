@@ -36,9 +36,11 @@ export default async function HomePage({
 
   const period = await fetchDisplayPeriod(company.id);
   const categories = await fetchCategories(period?.id);
-  const { items, hasMore, total } = await fetchItemsPage({
+  const initialCategory = categories[0]?.name ?? "";
+  const catalogTotal = categories.reduce((sum, category) => sum + category.count, 0);
+  const { items, hasMore } = await fetchItemsPage({
     periodId: period?.id,
-    category: null,
+    category: initialCategory || null,
     offset: 0,
     limit: 12,
   });
@@ -49,13 +51,14 @@ export default async function HomePage({
       <CompanySwitcher companies={companies} activeCompany={company} />
       <main className="flex-1">
         <HomeCatalog
-          key={company.id}
+          key={`${company.id}-${period?.id ?? "none"}`}
           company={company}
           period={period}
           categories={categories}
           initialItems={items}
           initialHasMore={hasMore}
-          totalItems={total}
+          totalItems={catalogTotal}
+          initialCategory={initialCategory}
         />
       </main>
       <Footer />
