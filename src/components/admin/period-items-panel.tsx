@@ -487,6 +487,7 @@ export function PeriodItemsPanel({
 
   function startEdit(item: AuctionItem) {
     setAddingNew(false);
+    setActiveCategory("all");
     setEditingId(item.id);
     setEditingCurrentPrice(item.current_price);
     setForm({
@@ -504,6 +505,7 @@ export function PeriodItemsPanel({
   function startAdd() {
     setEditingId(null);
     setEditingCurrentPrice(undefined);
+    setActiveCategory("all");
     setForm({
       ...emptyItemForm,
       lot_number: getNextLotNumber(items),
@@ -794,7 +796,7 @@ export function PeriodItemsPanel({
               Tambah Barang
             </Button>
           </div>
-        ) : filteredItems.length === 0 ? (
+        ) : filteredItems.length === 0 && !isFormOpen ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Package className="h-10 w-10 text-slate-300" />
             <p className="mt-3 text-sm text-slate-500">
