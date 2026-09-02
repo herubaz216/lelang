@@ -11,7 +11,7 @@ import { Input, Label, Textarea, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Upload, Package, X, Trash2 } from "lucide-react";
+import { Plus, Pencil, Upload, Package, X, Trash2, ImageOff } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PhotoSourcePicker } from "@/components/admin/photo-source-picker";
 import { ImagePreviewDialog } from "@/components/image-preview-dialog";
@@ -355,11 +355,13 @@ function ItemForm({
 
 function ItemRow({
   item,
+  thumbnailPath,
   onEdit,
   onDelete,
   disabled,
 }: {
   item: AuctionItem;
+  thumbnailPath?: string | null;
   onEdit: (item: AuctionItem) => void;
   onDelete: (item: AuctionItem) => void;
   disabled?: boolean;
@@ -369,10 +371,26 @@ function ItemRow({
   return (
     <div
       className={cn(
-        "flex items-center justify-between rounded-xl border border-[var(--border)] bg-white p-4",
+        "flex items-center gap-3 rounded-xl border border-[var(--border)] bg-white p-3 sm:gap-4 sm:p-4",
         disabled && "opacity-50"
       )}
     >
+      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[var(--border)] bg-slate-100 sm:h-16 sm:w-16">
+        {thumbnailPath ? (
+          <Image
+            src={getPhotoUrl(thumbnailPath)}
+            alt={item.item_name}
+            fill
+            className="object-cover"
+            sizes="64px"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 text-slate-400">
+            <ImageOff className="h-5 w-5" aria-hidden />
+            <span className="text-[9px] font-medium leading-none">No image</span>
+          </div>
+        )}
+      </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-xs font-semibold text-[var(--primary)]">
@@ -430,6 +448,7 @@ export function PeriodItemsPanel({
   onItemsChange?: () => void;
 }) {
   const [items, setItems] = useState<AuctionItem[]>([]);
+  const [itemThumbnails, setItemThumbnails] = useState<Record<string, string>>({});
   const [photos, setPhotos] = useState<ItemPhoto[]>([]);
   const [form, setForm] = useState(emptyItemForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -447,13 +466,57 @@ export function PeriodItemsPanel({
   const canEditPricingRole = canEditPricing(userRole);
   const isFormOpen = addingNew || editingId !== null;
 
+  async function loadItemThumbnails(itemList: AuctionItem[]) {
+    const itemIds = itemList.map((item) => item.id);
+    if (itemIds.length === 0) {
+      setItemThumbnails({});
+      return;
+    }
+
+    const { data } = await supabase
+      .from("item_photos")
+      .select("item_id, storage_path, sort_order")
+      .in("item_id", itemIds)
+      .order("sort_order");
+
+    const thumbnails: Record<string, string> = {};
+    for (const photo of data ?? []) {
+      if (!thumbnails[photo.item_id]) {
+        thumbnails[photo.item_id] = photo.storage_path;
+      }
+    }
+    setItemThumbnails(thumbnails);
+  }
+
   async function loadItems() {
     const { data } = await supabase
       .from("auction_items")
       .select("*")
       .eq("period_id", periodId)
       .order("lot_number");
-    setItems(data ?? []);
+    const nextItems = data ?? [];
+    setItems(nextItems);
+    await loadItemThumbnails(nextItems);
+  }
+
+  async function refreshItemThumbnail(itemId: string) {
+    const { data } = await supabase
+      .from("item_photos")
+      .select("storage_path")
+      .eq("item_id", itemId)
+      .order("sort_order")
+      .limit(1)
+      .maybeSingle();
+
+    setItemThumbnails((prev) => {
+      const next = { ...prev };
+      if (data?.storage_path) {
+        next[itemId] = data.storage_path;
+      } else {
+        delete next[itemId];
+      }
+      return next;
+    });
   }
 
   async function loadPhotos(itemId: string) {
@@ -661,6 +724,7 @@ export function PeriodItemsPanel({
 
     toast.success("Foto berhasil diupload");
     await loadPhotos(editingId);
+    await refreshItemThumbnail(editingId);
   }
 
   async function handlePhotoDelete(photo: ItemPhoto) {
@@ -679,6 +743,7 @@ export function PeriodItemsPanel({
 
     toast.success("Foto dihapus");
     await loadPhotos(editingId);
+    await refreshItemThumbnail(editingId);
   }
 
   function requestDeleteItem(item: AuctionItem) {
@@ -843,6 +908,7 @@ export function PeriodItemsPanel({
                 <ItemRow
                   key={item.id}
                   item={item}
+                  thumbnailPath={itemThumbnails[item.id]}
                   onEdit={startEdit}
                   onDelete={requestDeleteItem}
                   disabled={isFormOpen}
