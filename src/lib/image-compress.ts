@@ -1,5 +1,5 @@
 const MAX_BYTES = 600 * 1024;
-const MAX_DIMENSION = 1920;
+const MAX_DIMENSION = 2048;
 
 function isImageFile(file: File) {
   if (file.type.startsWith("image/")) return true;
@@ -40,7 +40,20 @@ async function loadBitmap(file: File): Promise<ImageBitmap> {
   }
 }
 
-/** Resize and compress any image upload to max ~600KB JPEG (camera + gallery). */
+async function findBestBlob(canvas: HTMLCanvasElement, maxBytes: number) {
+  let best: Blob | null = null;
+
+  for (let quality = 0.95; quality >= 0.55; quality -= 0.05) {
+    const blob = await canvasToBlob(canvas, "image/jpeg", quality);
+    if (blob.size <= maxBytes && (!best || blob.size > best.size)) {
+      best = blob;
+    }
+  }
+
+  return best;
+}
+
+/** Resize and compress uploads to ~400-600KB JPEG (camera + gallery). */
 export async function compressImageFile(
   file: File,
   maxBytes = MAX_BYTES
@@ -76,18 +89,13 @@ export async function compressImageFile(
       ctx.clearRect(0, 0, width, height);
       ctx.drawImage(bitmap, 0, 0, width, height);
 
-      let quality = 0.85;
-      while (quality >= 0.35) {
-        const blob = await canvasToBlob(canvas, "image/jpeg", quality);
-        if (blob.size <= maxBytes) {
-          result = blob;
-          break;
-        }
-        quality -= 0.07;
+      const candidate = await findBestBlob(canvas, maxBytes);
+      if (candidate) {
+        result = candidate;
+        break;
       }
 
-      if (result) break;
-      sizeScale *= 0.85;
+      sizeScale *= 0.9;
     }
   } finally {
     bitmap.close();
