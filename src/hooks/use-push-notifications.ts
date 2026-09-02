@@ -14,6 +14,33 @@ import {
   urlBase64ToUint8Array,
 } from "@/lib/push-client";
 
+async function resolveSubscribedState() {
+  if (!isPushSupported()) {
+    return isPushSubscribed();
+  }
+
+  try {
+    await registerServiceWorker();
+    const subscription = await getExistingPushSubscription();
+    const markedSubscribed = isPushSubscribed();
+
+    if (subscription && markedSubscribed) {
+      return true;
+    }
+
+    if (markedSubscribed && !subscription) {
+      clearPushSubscribed();
+    }
+
+    return false;
+  } catch {
+    if (isPushSubscribed()) {
+      clearPushSubscribed();
+    }
+    return false;
+  }
+}
+
 export function usePushNotifications() {
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
   const [subscribed, setSubscribed] = useState(false);
@@ -32,21 +59,14 @@ export function usePushNotifications() {
       setPermission(
         typeof Notification !== "undefined" ? Notification.permission : "unsupported"
       );
-      setSubscribed(isPushSubscribed());
+      setSubscribed(await resolveSubscribedState());
       setReady(true);
       return;
     }
 
     setPermission(Notification.permission);
-
-    try {
-      await registerServiceWorker();
-      setSubscribed(isPushSubscribed());
-    } catch {
-      setSubscribed(isPushSubscribed());
-    } finally {
-      setReady(true);
-    }
+    setSubscribed(await resolveSubscribedState());
+    setReady(true);
   }, []);
 
   useEffect(() => {
@@ -55,7 +75,13 @@ export function usePushNotifications() {
 
     const handler = () => void refreshState();
     window.addEventListener("elang-push-state-change", handler);
-    return () => window.removeEventListener("elang-push-state-change", handler);
+    window.addEventListener("focus", handler);
+    window.addEventListener("pageshow", handler);
+    return () => {
+      window.removeEventListener("elang-push-state-change", handler);
+      window.removeEventListener("focus", handler);
+      window.removeEventListener("pageshow", handler);
+    };
   }, [refreshState]);
 
   const enableNotifications = useCallback(async () => {
@@ -150,9 +176,13 @@ export function usePushNotifications() {
     }
   }, []);
 
+  const needsOptIn =
+    ready && canShowPushOptIn() && permission !== "denied" && permission !== "unsupported" && !subscribed;
+
   return {
     permission,
     subscribed,
+    needsOptIn,
     loading,
     ready,
     enableNotifications,

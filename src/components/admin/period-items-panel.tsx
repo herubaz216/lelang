@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Plus, Pencil, Upload, Package, X, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PhotoSourcePicker } from "@/components/admin/photo-source-picker";
+import { ImagePreviewDialog } from "@/components/image-preview-dialog";
 import { cn } from "@/lib/utils";
 import { compressImageFile } from "@/lib/image-compress";
 import { canEditPricing } from "@/lib/roles";
@@ -152,6 +153,7 @@ function ItemForm({
 }) {
   const isActive = form.status === "active";
   const statusLocked = LOCKED_STATUSES.includes(form.status);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   return (
     <div className="rounded-xl border border-indigo-200 bg-indigo-50/30 p-4">
@@ -284,22 +286,29 @@ function ItemForm({
 
           {editingId ? (
             <div className="flex flex-wrap gap-2">
-              {photos.map((photo) => (
+              {photos.map((photo, photoIndex) => (
                 <div
                   key={photo.id}
                   className="relative h-20 w-20 overflow-hidden rounded-lg border border-[var(--border)]"
                 >
-                  <Image
-                    src={getPhotoUrl(photo.storage_path)}
-                    alt=""
-                    fill
-                    className="object-cover"
-                    sizes="80px"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setPreviewIndex(photoIndex)}
+                    className="relative h-full w-full cursor-zoom-in"
+                    aria-label={`Preview foto ${photoIndex + 1}`}
+                  >
+                    <Image
+                      src={getPhotoUrl(photo.storage_path)}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      sizes="80px"
+                    />
+                  </button>
                   <button
                     type="button"
                     onClick={() => onPhotoDelete(photo)}
-                    className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white"
+                    className="absolute right-0.5 top-0.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white"
                     aria-label="Hapus foto"
                   >
                     <X className="h-3 w-3" />
@@ -330,6 +339,16 @@ function ItemForm({
           </Button>
         </div>
       </form>
+
+      {previewIndex !== null && (
+        <ImagePreviewDialog
+          images={photos}
+          index={previewIndex}
+          onIndexChange={setPreviewIndex}
+          onClose={() => setPreviewIndex(null)}
+          alt={form.item_name || "Barang lelang"}
+        />
+      )}
     </div>
   );
 }

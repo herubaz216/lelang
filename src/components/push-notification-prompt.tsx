@@ -18,6 +18,7 @@ export function PushNotificationPrompt({
   const {
     permission,
     subscribed,
+    needsOptIn,
     loading,
     ready,
     enableNotifications,
@@ -28,10 +29,8 @@ export function PushNotificationPrompt({
     return null;
   }
 
-  const showIosHint = isIosDevice() && !isStandalonePwa();
-
-  if (variant === "banner") {
-    if (permission === "denied") {
+  if (permission === "denied") {
+    if (variant === "banner") {
       return (
         <div
           className={cn(
@@ -45,7 +44,17 @@ export function PushNotificationPrompt({
       );
     }
 
-    if (subscribed) {
+    return (
+      <span className={cn("text-xs text-slate-400", className)} title="Notifikasi diblokir">
+        <BellOff className="h-4 w-4" />
+      </span>
+    );
+  }
+
+  const showIosHint = isIosDevice() && !isStandalonePwa();
+
+  if (variant === "banner") {
+    if (!needsOptIn) {
       return null;
     }
 
@@ -81,14 +90,6 @@ export function PushNotificationPrompt({
           Aktifkan Notifikasi
         </Button>
       </div>
-    );
-  }
-
-  if (permission === "denied") {
-    return (
-      <span className={cn("text-xs text-slate-400", className)} title="Notifikasi diblokir">
-        <BellOff className="h-4 w-4" />
-      </span>
     );
   }
 
