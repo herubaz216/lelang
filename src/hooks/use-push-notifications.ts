@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { DEFAULT_COMPANY_CODE } from "@/lib/company-utils";
 import {
-  clearCompanyPushSubscribed,
-  isCompanyPushSubscribed,
-  markCompanyPushSubscribed,
+  clearPushSubscribed,
+  isPushSubscribed,
   markPushPromptSeen,
+  markPushSubscribed,
 } from "@/lib/push-prompt-storage";
 import {
   getExistingPushSubscription,
@@ -15,8 +14,7 @@ import {
   urlBase64ToUint8Array,
 } from "@/lib/push-client";
 
-export function usePushNotifications(companyCode?: string | null) {
-  const resolvedCompanyCode = (companyCode ?? DEFAULT_COMPANY_CODE).toLowerCase();
+export function usePushNotifications() {
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -35,14 +33,13 @@ export function usePushNotifications(companyCode?: string | null) {
     try {
       await registerServiceWorker();
       const subscription = await getExistingPushSubscription();
-      const companySubscribed = isCompanyPushSubscribed(resolvedCompanyCode);
-      setSubscribed(Boolean(subscription) && companySubscribed);
+      setSubscribed(Boolean(subscription) && isPushSubscribed());
     } catch {
       setSubscribed(false);
     } finally {
       setReady(true);
     }
-  }, [resolvedCompanyCode]);
+  }, []);
 
   useEffect(() => {
     setReady(false);
@@ -71,7 +68,7 @@ export function usePushNotifications(companyCode?: string | null) {
       setPermission(nextPermission);
 
       if (nextPermission !== "granted") {
-        markPushPromptSeen(resolvedCompanyCode);
+        markPushPromptSeen();
         return false;
       }
 
@@ -94,7 +91,6 @@ export function usePushNotifications(companyCode?: string | null) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          companyCode: resolvedCompanyCode,
           subscription: {
             endpoint: json.endpoint,
             keys: {
@@ -110,13 +106,13 @@ export function usePushNotifications(companyCode?: string | null) {
         throw new Error(payload.error ?? "Gagal mengaktifkan notifikasi");
       }
 
-      markCompanyPushSubscribed(resolvedCompanyCode);
+      markPushSubscribed();
       setSubscribed(true);
       return true;
     } finally {
       setLoading(false);
     }
-  }, [resolvedCompanyCode]);
+  }, []);
 
   const disableNotifications = useCallback(async () => {
     if (!isPushSupported()) return;
@@ -126,7 +122,7 @@ export function usePushNotifications(companyCode?: string | null) {
     try {
       const subscription = await getExistingPushSubscription();
       if (!subscription) {
-        clearCompanyPushSubscribed(resolvedCompanyCode);
+        clearPushSubscribed();
         setSubscribed(false);
         return;
       }
@@ -135,20 +131,19 @@ export function usePushNotifications(companyCode?: string | null) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          companyCode: resolvedCompanyCode,
           endpoint: subscription.endpoint,
         }),
       });
 
-      clearCompanyPushSubscribed(resolvedCompanyCode);
+      await subscription.unsubscribe();
+      clearPushSubscribed();
       setSubscribed(false);
     } finally {
       setLoading(false);
     }
-  }, [resolvedCompanyCode]);
+  }, []);
 
   return {
-    companyCode: resolvedCompanyCode,
     permission,
     subscribed,
     loading,

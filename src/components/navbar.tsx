@@ -139,7 +139,7 @@ function NavbarContent() {
           </div>
 
           <div className="flex items-center gap-2">
-            <PushNotificationPrompt companyCode={companyQuery} variant="navbar" />
+            <PushNotificationPrompt variant="navbar" />
             <NavbarAuth profile={profile} />
           </div>
         </div>
@@ -152,7 +152,7 @@ function NavbarContent() {
         companyCode={companyQuery}
       />
 
-      <PushNotificationAutoPrompt companyCode={companyQuery} />
+      <PushNotificationAutoPrompt />
     </>
   );
 }

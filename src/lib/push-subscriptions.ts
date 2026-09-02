@@ -30,6 +30,30 @@ export async function upsertPushSubscription(
   }
 }
 
+export async function upsertPushSubscriptionForAllCompanies(
+  subscription: PushSubscriptionInput
+) {
+  const admin = createAdminClient();
+  const { data: companies, error } = await admin
+    .from("companies")
+    .select("id")
+    .order("code", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!companies?.length) {
+    throw new Error("Tidak ada perusahaan yang terdaftar");
+  }
+
+  for (const company of companies) {
+    await upsertPushSubscription(company.id, subscription);
+  }
+
+  return companies.length;
+}
+
 export async function deletePushSubscription(
   companyId: string,
   endpoint: string

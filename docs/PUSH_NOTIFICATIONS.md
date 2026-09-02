@@ -70,8 +70,8 @@ Jangan pasang dua webhook sekaligus (SQL trigger + dashboard) agar tidak double 
 
 ## Alur singkat
 
-1. Visitor membuka `/?company=ams` lalu klik **Aktifkan Notifikasi**
-2. Browser register service worker `/sw.js` dan menyimpan subscription ke tabel `push_subscriptions`
+1. Visitor membuka situs lalu klik **Aktifkan Notifikasi** (satu kali untuk semua perusahaan AMS & AMV)
+2. Browser register service worker `/sw.js` dan menyimpan subscription ke tabel `push_subscriptions` (satu baris per perusahaan, endpoint sama)
 3. Admin mengaktifkan/menutup periode, atau insert barang baru
 4. Supabase trigger memanggil `/api/push/notify-period` atau `/api/push/notify-item`
 5. Server mengirim Web Push ke semua subscription perusahaan terkait

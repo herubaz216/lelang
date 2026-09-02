@@ -242,11 +242,7 @@ export function HomeCatalog({
         </div>
 
         {period && biddingOpen && (
-          <PushNotificationPrompt
-            companyCode={company.code}
-            variant="banner"
-            className="mb-6"
-          />
+          <PushNotificationPrompt variant="banner" className="mb-6" />
         )}
 
         {!period ? (

@@ -14,33 +14,28 @@ import {
   shouldAutoPromptPush,
 } from "@/lib/push-prompt-storage";
 
-export function PushNotificationAutoPrompt({
-  companyCode,
-}: {
-  companyCode?: string | null;
-}) {
+export function PushNotificationAutoPrompt() {
   const {
-    companyCode: resolvedCompanyCode,
     permission,
     subscribed,
     loading,
     ready,
     enableNotifications,
-  } = usePushNotifications(companyCode);
+  } = usePushNotifications();
 
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (!ready || !isPushSupported()) return;
     if (permission === "denied" || subscribed) return;
-    if (!shouldAutoPromptPush(resolvedCompanyCode)) return;
+    if (!shouldAutoPromptPush()) return;
 
     const timer = window.setTimeout(() => setOpen(true), 1200);
     return () => window.clearTimeout(timer);
-  }, [ready, permission, subscribed, resolvedCompanyCode]);
+  }, [ready, permission, subscribed]);
 
   function dismiss() {
-    markPushPromptSeen(resolvedCompanyCode);
+    markPushPromptSeen();
     setOpen(false);
   }
 
@@ -53,7 +48,6 @@ export function PushNotificationAutoPrompt({
     return null;
   }
 
-  const companyLabel = resolvedCompanyCode.toUpperCase();
   const showIosHint = isIosDevice() && !isStandalonePwa();
 
   return (
@@ -79,11 +73,11 @@ export function PushNotificationAutoPrompt({
         </div>
 
         <h2 id="push-auto-prompt-title" className="mt-4 text-lg font-semibold text-slate-900">
-          Aktifkan notifikasi {companyLabel}?
+          Aktifkan notifikasi lelang?
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-slate-600">
-          Dapatkan pemberitahuan saat lelang dimulai, ditutup, atau ada barang baru di{" "}
-          <strong>{companyLabel}</strong>. Cukup sekali untuk perusahaan ini.
+          Satu kali aktifkan untuk semua perusahaan (<strong>AMS</strong> & <strong>AMV</strong>).
+          Dapatkan pemberitahuan saat lelang dimulai, ditutup, atau ada barang baru.
         </p>
 
         {showIosHint && (

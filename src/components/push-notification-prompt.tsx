@@ -7,32 +7,28 @@ import { isIosDevice, isPushSupported, isStandalonePwa } from "@/lib/push-client
 import { cn } from "@/lib/utils";
 
 type PushNotificationPromptProps = {
-  companyCode?: string | null;
   variant?: "navbar" | "banner";
   className?: string;
 };
 
 export function PushNotificationPrompt({
-  companyCode,
   variant = "navbar",
   className,
 }: PushNotificationPromptProps) {
   const {
-    companyCode: resolvedCompanyCode,
     permission,
     subscribed,
     loading,
     ready,
     enableNotifications,
     disableNotifications,
-  } = usePushNotifications(companyCode);
+  } = usePushNotifications();
 
   if (!ready || permission === "unsupported") {
     return null;
   }
 
   const showIosHint = isIosDevice() && !isStandalonePwa();
-  const companyLabel = resolvedCompanyCode.toUpperCase();
 
   if (variant === "banner") {
     if (permission === "denied") {
@@ -63,8 +59,8 @@ export function PushNotificationPrompt({
         <div className="min-w-0">
           <p className="font-medium text-slate-900">Dapatkan notifikasi lelang</p>
           <p className="mt-1 text-sm text-slate-600">
-            Kami akan memberi tahu saat lelang dimulai, ditutup, atau ada lot baru di{" "}
-            {companyLabel}.
+            Satu kali aktifkan untuk semua perusahaan (AMS & AMV). Kami beri tahu saat lelang
+            dimulai, ditutup, atau ada lot baru.
           </p>
           {showIosHint && (
             <p className="mt-2 text-xs text-slate-500">
@@ -105,7 +101,7 @@ export function PushNotificationPrompt({
         className={cn("gap-2 text-emerald-700", className)}
         disabled={loading}
         onClick={() => void disableNotifications()}
-        title={`Notifikasi ${companyLabel} aktif`}
+        title="Notifikasi aktif untuk semua perusahaan"
       >
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
         <span className="hidden sm:inline">Notifikasi aktif</span>
