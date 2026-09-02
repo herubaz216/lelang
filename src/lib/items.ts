@@ -37,8 +37,9 @@ export async function fetchItemsPage({
     .order("lot_number");
 
   if (category && category !== "all") {
+    // "Lainnya" bisa literal di DB, atau placeholder untuk null/kosong di hitungan kategori.
     if (category === "Lainnya") {
-      query = query.is("category", null);
+      query = query.or("category.eq.Lainnya,category.is.null");
     } else {
       query = query.eq("category", category);
     }
