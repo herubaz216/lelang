@@ -1,6 +1,10 @@
 # Browser Push Notifications
 
-Fitur ini mengirim notifikasi ke HP/browser visitor yang sudah mengklik **Aktifkan Notifikasi**, saat admin menambahkan barang baru dengan status `active` atau `ready` pada periode `active`.
+Fitur ini mengirim notifikasi ke HP/browser visitor yang sudah mengklik **Aktifkan Notifikasi**, untuk:
+
+- **Periode dimulai** — status periode berubah menjadi `active` (atau insert langsung `active`)
+- **Periode ditutup** — status periode berubah menjadi `finished` atau `cancelled`
+- **Barang baru** — admin menambahkan item dengan status `active` atau `ready` pada periode `active`
 
 ## Environment variables
 
@@ -21,32 +25,55 @@ npx web-push generate-vapid-keys
 
 `PUSH_WEBHOOK_SECRET` bisa berupa string acak panjang (mis. `openssl rand -hex 32`).
 
-## Supabase Database Webhook (wajib di production)
+## Supabase trigger webhook (sudah dipasang via SQL)
 
-Setelah deploy API route, buat webhook di Supabase Dashboard:
+Webhook **tidak** ada di menu Database. Di project ini webhook dipasang lewat **Postgres trigger + pg_net** yang memanggil API production.
 
-1. **Database → Webhooks → Create a new hook**
-2. **Table:** `auction_items`
-3. **Events:** `INSERT`
-4. **HTTP method:** `POST`
-5. **URL:** `https://lelang.amscorp.id/api/push/notify-item`
-6. **HTTP Headers:**
-   - `Authorization: Bearer <PUSH_WEBHOOK_SECRET>`
-   - `Content-Type: application/json`
-7. Payload default Supabase sudah cukup (harus menyertakan field `record`)
+| Trigger | Tabel | Event | Endpoint |
+|---------|-------|-------|----------|
+| `auction_items_notify_push_webhook` | `auction_items` | INSERT (`active`/`ready`) | `/api/push/notify-item` |
+| `auction_periods_notify_push_insert_webhook` | `auction_periods` | INSERT (`active`) | `/api/push/notify-period` |
+| `auction_periods_notify_push_update_webhook` | `auction_periods` | UPDATE (→ `active` / `finished` / `cancelled`) | `/api/push/notify-period` |
 
-Webhook hanya mengirim push jika:
+Secret disimpan di **Supabase Vault** dengan nama `push_webhook_secret` — harus sama dengan env `PUSH_WEBHOOK_SECRET` di hosting.
 
+### Setup secret di Vault (sekali)
+
+```sql
+SELECT vault.create_secret(
+  '<PUSH_WEBHOOK_SECRET>',
+  'push_webhook_secret',
+  'Bearer token for lelang push notify-item webhook'
+);
+```
+
+### Alternatif: Dashboard Integrations
+
+Jika ingin pakai UI Supabase: **Integrations → Webhooks** (bukan Database).
+
+URL: `https://supabase.com/dashboard/project/<project-id>/integrations/webhooks/overview`
+
+Jangan pasang dua webhook sekaligus (SQL trigger + dashboard) agar tidak double push.
+
+### Kapan push terkirim
+
+**Barang baru:**
 - `record.status` adalah `active` atau `ready`
 - parent `auction_periods.status` adalah `active`
 - ada subscriber untuk `company_id` periode tersebut
+
+**Periode dimulai:**
+- status berubah ke `active` (mis. dari `draft`), atau insert langsung `active`
+
+**Periode ditutup:**
+- status berubah ke `finished` atau `cancelled`
 
 ## Alur singkat
 
 1. Visitor membuka `/?company=ams` lalu klik **Aktifkan Notifikasi**
 2. Browser register service worker `/sw.js` dan menyimpan subscription ke tabel `push_subscriptions`
-3. Admin insert barang baru ke `auction_items`
-4. Supabase webhook memanggil `/api/push/notify-item`
+3. Admin mengaktifkan/menutup periode, atau insert barang baru
+4. Supabase trigger memanggil `/api/push/notify-period` atau `/api/push/notify-item`
 5. Server mengirim Web Push ke semua subscription perusahaan terkait
 
 ## Testing lokal
@@ -66,6 +93,15 @@ curl -X POST http://localhost:3000/api/push/notify-item \
 
 Pastikan `period_id` mengarah ke periode `active` milik perusahaan yang sama dengan subscription.
 
+Test periode (update):
+
+```bash
+curl -X POST http://localhost:3000/api/push/notify-period \
+  -H "Authorization: Bearer <PUSH_WEBHOOK_SECRET>" \
+  -H "Content-Type: application/json" \
+  -d "{\"type\":\"UPDATE\",\"record\":{\"id\":\"...\",\"company_id\":\"...\",\"code\":\"P-001\",\"title\":\"Lelang Test\",\"status\":\"active\",\"start_at\":\"2026-01-01T00:00:00Z\",\"end_at\":\"2026-12-31T23:59:59Z\"},\"old_record\":{\"id\":\"...\",\"company_id\":\"...\",\"code\":\"P-001\",\"title\":\"Lelang Test\",\"status\":\"draft\",\"start_at\":\"2026-01-01T00:00:00Z\",\"end_at\":\"2026-12-31T23:59:59Z\"}}"
+```
+
 ## Catatan platform
 
 | Platform | Perilaku |
@@ -81,7 +117,11 @@ Pastikan `period_id` mengarah ke periode `active` milik perusahaan yang sama den
 - `src/app/api/push/subscribe/route.ts`
 - `src/app/api/push/unsubscribe/route.ts`
 - `src/app/api/push/notify-item/route.ts`
+- `src/app/api/push/notify-period/route.ts`
 - `src/lib/web-push.ts`
 - `src/lib/push-subscriptions.ts`
 - `src/lib/push-notify-item.ts`
+- `src/lib/push-notify-period.ts`
+- `src/lib/push-notify-shared.ts`
 - `src/components/push-notification-prompt.tsx`
+- `src/components/push-notification-auto-prompt.tsx`

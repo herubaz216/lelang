@@ -1,20 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { Bell, BellOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DEFAULT_COMPANY_CODE } from "@/lib/company-utils";
-import {
-  getExistingPushSubscription,
-  isIosDevice,
-  isPushSupported,
-  isStandalonePwa,
-  registerServiceWorker,
-  urlBase64ToUint8Array,
-} from "@/lib/push-client";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { isIosDevice, isPushSupported, isStandalonePwa } from "@/lib/push-client";
 import { cn } from "@/lib/utils";
-
-type PermissionState = NotificationPermission | "unsupported";
 
 type PushNotificationPromptProps = {
   companyCode?: string | null;
@@ -27,123 +17,17 @@ export function PushNotificationPrompt({
   variant = "navbar",
   className,
 }: PushNotificationPromptProps) {
-  const resolvedCompanyCode = (companyCode ?? DEFAULT_COMPANY_CODE).toLowerCase();
-  const [permission, setPermission] = useState<PermissionState>("default");
-  const [subscribed, setSubscribed] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const {
+    companyCode: resolvedCompanyCode,
+    permission,
+    subscribed,
+    loading,
+    ready,
+    enableNotifications,
+    disableNotifications,
+  } = usePushNotifications(companyCode);
 
-  const refreshState = useCallback(async () => {
-    if (!isPushSupported()) {
-      setPermission("unsupported");
-      setSubscribed(false);
-      return;
-    }
-
-    setPermission(Notification.permission);
-
-    try {
-      await registerServiceWorker();
-      const subscription = await getExistingPushSubscription();
-      setSubscribed(Boolean(subscription));
-    } catch {
-      setSubscribed(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    setMounted(true);
-    void refreshState();
-  }, [refreshState]);
-
-  async function enableNotifications() {
-    if (!isPushSupported()) return;
-
-    setLoading(true);
-
-    try {
-      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-      if (!vapidPublicKey) {
-        throw new Error("VAPID public key belum dikonfigurasi");
-      }
-
-      const nextPermission = await Notification.requestPermission();
-      setPermission(nextPermission);
-
-      if (nextPermission !== "granted") {
-        return;
-      }
-
-      const registration = await registerServiceWorker();
-      let subscription = await registration.pushManager.getSubscription();
-
-      if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-        });
-      }
-
-      const json = subscription.toJSON();
-      if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
-        throw new Error("Subscription push tidak valid");
-      }
-
-      const response = await fetch("/api/push/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyCode: resolvedCompanyCode,
-          subscription: {
-            endpoint: json.endpoint,
-            keys: {
-              p256dh: json.keys.p256dh,
-              auth: json.keys.auth,
-            },
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const payload = (await response.json()) as { error?: string };
-        throw new Error(payload.error ?? "Gagal mengaktifkan notifikasi");
-      }
-
-      setSubscribed(true);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function disableNotifications() {
-    if (!isPushSupported()) return;
-
-    setLoading(true);
-
-    try {
-      const subscription = await getExistingPushSubscription();
-      if (!subscription) {
-        setSubscribed(false);
-        return;
-      }
-
-      await fetch("/api/push/unsubscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyCode: resolvedCompanyCode,
-          endpoint: subscription.endpoint,
-        }),
-      });
-
-      await subscription.unsubscribe();
-      setSubscribed(false);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (!mounted || permission === "unsupported") {
+  if (!ready || permission === "unsupported") {
     return null;
   }
 
@@ -177,9 +61,10 @@ export function PushNotificationPrompt({
         )}
       >
         <div className="min-w-0">
-          <p className="font-medium text-slate-900">Dapatkan notifikasi barang baru</p>
+          <p className="font-medium text-slate-900">Dapatkan notifikasi lelang</p>
           <p className="mt-1 text-sm text-slate-600">
-            Kami akan memberi tahu saat ada lot baru di periode aktif {companyLabel}.
+            Kami akan memberi tahu saat lelang dimulai, ditutup, atau ada lot baru di{" "}
+            {companyLabel}.
           </p>
           {showIosHint && (
             <p className="mt-2 text-xs text-slate-500">
