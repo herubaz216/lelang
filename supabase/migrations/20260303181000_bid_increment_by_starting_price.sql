@@ -1,7 +1,8 @@
--- Kelipatan bid mengikuti harga awal:
+-- Kelipatan bid mengikuti harga awal (saran default):
 -- 0 - 50.000      => 3.000
 -- 50.000 - 150.000 => 5.000
 -- > 150.000       => 10.000
+-- Admin tetap boleh override manual ke 3000/5000/10000.
 
 CREATE OR REPLACE FUNCTION public.bid_increment_for_starting_price(p_starting_price numeric)
 RETURNS numeric
@@ -56,7 +57,11 @@ BEGIN
   END IF;
 
   v_starting := COALESCE(p_starting_price, 0);
-  v_increment := public.bid_increment_for_starting_price(v_starting);
+  IF p_bid_increment IN (3000, 5000, 10000) THEN
+    v_increment := p_bid_increment;
+  ELSE
+    v_increment := public.bid_increment_for_starting_price(v_starting);
+  END IF;
 
   v_lot := public.allocate_next_lot_number(p_period_id);
 
@@ -90,7 +95,7 @@ BEGIN
 END;
 $$;
 
--- Saat admin ubah harga awal, kelipatan bid ikut disesuaikan.
+-- Hanya auto-isi saat INSERT jika nilai tidak valid; jangan timpa edit manual.
 CREATE OR REPLACE FUNCTION public.sync_bid_increment_from_starting_price()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -98,9 +103,11 @@ SECURITY DEFINER
 SET search_path TO public
 AS $$
 BEGIN
-  IF TG_OP = 'INSERT'
-     OR NEW.starting_price IS DISTINCT FROM OLD.starting_price THEN
-    NEW.bid_increment := public.bid_increment_for_starting_price(NEW.starting_price);
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.bid_increment IS NULL
+       OR NEW.bid_increment NOT IN (3000, 5000, 10000) THEN
+      NEW.bid_increment := public.bid_increment_for_starting_price(NEW.starting_price);
+    END IF;
   END IF;
   RETURN NEW;
 END;
