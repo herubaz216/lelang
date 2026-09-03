@@ -584,15 +584,28 @@ export function PeriodItemsPanel({
     });
   }
 
-  function startAdd() {
+  async function allocateLotNumber(): Promise<string | null> {
+    const { data, error } = await supabase.rpc("allocate_next_lot_number", {
+      p_period_id: periodId,
+    });
+    if (error || !data) {
+      toast.error(error?.message ?? "Gagal mengambil nomor lot");
+      return null;
+    }
+    return data;
+  }
+
+  async function startAdd() {
     setEditingId(null);
     setEditingCurrentPrice(undefined);
     setActiveCategory("all");
+    setPhotos([]);
+
+    const lotNumber = (await allocateLotNumber()) ?? getNextLotNumber(items);
     setForm({
       ...emptyItemForm,
-      lot_number: getNextLotNumber(items),
+      lot_number: lotNumber,
     });
-    setPhotos([]);
     setAddingNew(true);
   }
 
@@ -646,33 +659,33 @@ export function PeriodItemsPanel({
       await loadItems();
       cancelForm();
     } else {
-      const insertPayload = {
-        ...basePayload,
-        period_id: periodId,
-        lot_number: form.lot_number,
-        starting_price: canEditPricingRole ? startingPrice : 0,
-        bid_increment: canEditPricingRole ? bidIncrement : 10000,
-        current_price: canEditPricingRole ? startingPrice : 0,
-      };
-
-      const { data, error } = await supabase
-        .from("auction_items")
-        .insert(insertPayload)
-        .select()
-        .single();
+      const { data, error } = await supabase.rpc("admin_create_auction_item", {
+        p_period_id: periodId,
+        p_item_name: form.item_name.trim(),
+        p_category: form.category.trim() || null,
+        p_description: form.description.trim(),
+        p_item_condition: form.item_condition.trim() || null,
+        p_status: form.status,
+        p_starting_price: canEditPricingRole ? startingPrice : 0,
+        p_bid_increment: canEditPricingRole ? bidIncrement : 10000,
+      });
       setLoading(false);
-      if (error) {
-        toast.error(error.message);
+      if (error || !data) {
+        const message = error?.message?.includes("auction_item_lot_unique")
+          ? "Nomor lot bentrok, coba simpan lagi"
+          : error?.message ?? "Gagal menambah barang";
+        toast.error(message);
         return;
       }
-      toast.success("Barang ditambahkan — tambahkan foto (maks. 5)");
+      toast.success(
+        `Barang ${data.lot_number} ditambahkan — tambahkan foto (maks. 5)`
+      );
       await loadItems();
       onItemsChange?.();
-      if (data) {
-        setAddingNew(false);
-        setEditingId(data.id);
-        setPhotos([]);
-      }
+      setAddingNew(false);
+      setEditingId(data.id);
+      setForm((prev) => ({ ...prev, lot_number: data.lot_number }));
+      setPhotos([]);
     }
   }
 

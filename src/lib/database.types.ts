@@ -570,6 +570,23 @@ export type Database = {
         Args: { p_bid_id: string };
         Returns: undefined;
       };
+      allocate_next_lot_number: {
+        Args: { p_period_id: string };
+        Returns: string;
+      };
+      admin_create_auction_item: {
+        Args: {
+          p_period_id: string;
+          p_item_name: string;
+          p_category?: string | null;
+          p_description?: string;
+          p_item_condition?: string | null;
+          p_status?: string;
+          p_starting_price?: number;
+          p_bid_increment?: number;
+        };
+        Returns: Database["public"]["Tables"]["auction_items"]["Row"];
+      };
       upsert_bidder: {
         Args: {
           p_employee_nik: string;
