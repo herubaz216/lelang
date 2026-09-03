@@ -18,6 +18,7 @@ import { ImagePreviewDialog } from "@/components/image-preview-dialog";
 import { cn } from "@/lib/utils";
 import { compressImageFile } from "@/lib/image-compress";
 import { canEditPricing } from "@/lib/roles";
+import { getBidIncrementByStartingPrice } from "@/lib/bid-increment";
 import { fetchItemCategories } from "@/lib/item-categories";
 import type { ItemCategory } from "@/lib/database.types";
 import { CategoryFilter } from "@/components/category-filter";
@@ -31,7 +32,7 @@ const emptyItemForm = {
   description: "",
   item_condition: "",
   starting_price: "0",
-  bid_increment: "1000",
+  bid_increment: String(getBidIncrementByStartingPrice(0)),
   status: "draft",
 };
 
@@ -234,7 +235,15 @@ function ItemForm({
           {canEditPricing ? (
             <RupiahInput
               value={form.starting_price}
-              onChange={(v) => setForm({ ...form, starting_price: v })}
+              onChange={(v) =>
+                setForm({
+                  ...form,
+                  starting_price: v,
+                  bid_increment: String(
+                    getBidIncrementByStartingPrice(Number(v) || 0)
+                  ),
+                })
+              }
               onBlurAlign={(n) => Math.max(0, n)}
               required
             />
@@ -256,22 +265,10 @@ function ItemForm({
         )}
         <div className="space-y-1.5">
           <Label>Kelipatan Bid</Label>
-          {canEditPricing ? (
-            <>
-              <RupiahInput
-                value={form.bid_increment}
-                onChange={(v) => setForm({ ...form, bid_increment: v })}
-                onBlurAlign={(n) => Math.max(1000, Math.round(n / 1000) * 1000)}
-                required
-              />
-              <p className="text-xs text-slate-500">Min. Rp 1.000, kelipatan 1.000</p>
-            </>
-          ) : (
-            <>
-              <RupiahReadOnly value={form.bid_increment} />
-              <p className="text-xs text-slate-500">Hanya Akunting yang dapat mengubah</p>
-            </>
-          )}
+          <RupiahReadOnly value={form.bid_increment} />
+          <p className="text-xs text-slate-500">
+            Otomatis: ≤50rb=3rb · ≤150rb=5rb · &gt;150rb=10rb
+          </p>
         </div>
 
         <div className="space-y-2 sm:col-span-2">
@@ -622,7 +619,7 @@ export function PeriodItemsPanel({
     setLoading(true);
 
     const startingPrice = Number(form.starting_price);
-    const bidIncrement = Number(form.bid_increment);
+    const bidIncrement = getBidIncrementByStartingPrice(startingPrice);
 
     const basePayload: {
       item_name: string;
