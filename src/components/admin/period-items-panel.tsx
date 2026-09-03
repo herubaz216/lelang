@@ -265,10 +265,29 @@ function ItemForm({
         )}
         <div className="space-y-1.5">
           <Label>Kelipatan Bid</Label>
-          <RupiahReadOnly value={form.bid_increment} />
-          <p className="text-xs text-slate-500">
-            Otomatis: ≤50rb=3rb · ≤150rb=5rb · &gt;150rb=10rb
-          </p>
+          {canEditPricing ? (
+            <>
+              <RupiahInput
+                value={form.bid_increment}
+                onChange={(v) => setForm({ ...form, bid_increment: v })}
+                onBlurAlign={(n) => {
+                  const allowed = [3000, 5000, 10000];
+                  return allowed.reduce((best, cur) =>
+                    Math.abs(cur - n) < Math.abs(best - n) ? cur : best
+                  );
+                }}
+                required
+              />
+              <p className="text-xs text-slate-500">
+                Saran otomatis: ≤50rb=3rb · ≤150rb=5rb · &gt;150rb=10rb
+              </p>
+            </>
+          ) : (
+            <>
+              <RupiahReadOnly value={form.bid_increment} />
+              <p className="text-xs text-slate-500">Hanya Akunting yang dapat mengubah</p>
+            </>
+          )}
         </div>
 
         <div className="space-y-2 sm:col-span-2">
@@ -619,7 +638,7 @@ export function PeriodItemsPanel({
     setLoading(true);
 
     const startingPrice = Number(form.starting_price);
-    const bidIncrement = getBidIncrementByStartingPrice(startingPrice);
+    const bidIncrement = Number(form.bid_increment) || getBidIncrementByStartingPrice(startingPrice);
 
     const basePayload: {
       item_name: string;
