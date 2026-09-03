@@ -11,7 +11,7 @@ import { Input, Label, Textarea, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Upload, Package, X, Trash2, ImageOff } from "lucide-react";
+import { Plus, Pencil, Upload, Package, X, Trash2, ImageOff, Search } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Pagination } from "@/components/ui/pagination";
 import { PhotoSourcePicker } from "@/components/admin/photo-source-picker";
@@ -499,6 +499,7 @@ export function PeriodItemsPanel({
   const [categories, setCategories] = useState<ItemCategory[]>([]);
   const [activeCategory, setActiveCategory] = useState("all");
   const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
   const supabase = createClient();
 
   const canEditPricingRole = canEditPricing(userRole);
@@ -573,6 +574,7 @@ export function PeriodItemsPanel({
     setEditingCurrentPrice(undefined);
     setPhotos([]);
     setActiveCategory("all");
+    setSearchQuery("");
     setPage(1);
   }, [periodId]);
 
@@ -863,9 +865,15 @@ export function PeriodItemsPanel({
   }, [items, categories]);
 
   const filteredItems = useMemo(() => {
-    if (activeCategory === "all") return items;
-    return items.filter((item) => item.category === activeCategory);
-  }, [items, activeCategory]);
+    const query = searchQuery.trim().toLowerCase();
+    return items.filter((item) => {
+      if (activeCategory !== "all" && item.category !== activeCategory) {
+        return false;
+      }
+      if (!query) return true;
+      return item.item_name.toLowerCase().includes(query);
+    });
+  }, [items, activeCategory, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -877,7 +885,7 @@ export function PeriodItemsPanel({
 
   useEffect(() => {
     setPage(1);
-  }, [activeCategory]);
+  }, [activeCategory, searchQuery]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -906,9 +914,9 @@ export function PeriodItemsPanel({
           <div className="min-w-0">
             <h2 className="font-semibold text-slate-900">Barang Lelang</h2>
             <p className="text-sm text-slate-500">
-              {activeCategory === "all"
-                ? `${items.length} lot dalam periode ini`
-                : `${filteredItems.length} dari ${items.length} lot`}
+              {searchQuery.trim() || activeCategory !== "all"
+                ? `${filteredItems.length} dari ${items.length} lot`
+                : `${items.length} lot dalam periode ini`}
             </p>
           </div>
           <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
@@ -929,12 +937,33 @@ export function PeriodItemsPanel({
           </div>
         </div>
         {items.length > 0 && (
-          <CategoryFilter
-            categories={categoryFilterOptions}
-            activeCategory={activeCategory}
-            totalItems={items.length}
-            onChange={setActiveCategory}
-          />
+          <>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari nama barang..."
+                className="h-10 pl-9 pr-9"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  aria-label="Hapus pencarian"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <CategoryFilter
+              categories={categoryFilterOptions}
+              activeCategory={activeCategory}
+              totalItems={items.length}
+              onChange={setActiveCategory}
+            />
+          </>
         )}
       </div>
 
@@ -957,13 +986,18 @@ export function PeriodItemsPanel({
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Package className="h-10 w-10 text-slate-300" />
             <p className="mt-3 text-sm text-slate-500">
-              Tidak ada barang pada kategori ini.
+              {searchQuery.trim()
+                ? `Tidak ada barang dengan nama "${searchQuery.trim()}".`
+                : "Tidak ada barang pada kategori ini."}
             </p>
             <Button
               variant="outline"
               size="sm"
               className="mt-4 whitespace-nowrap"
-              onClick={() => setActiveCategory("all")}
+              onClick={() => {
+                setSearchQuery("");
+                setActiveCategory("all");
+              }}
             >
               Tampilkan semua
             </Button>
