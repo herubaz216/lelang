@@ -31,7 +31,7 @@ const emptyItemForm = {
   description: "",
   item_condition: "",
   starting_price: "0",
-  bid_increment: "10000",
+  bid_increment: "1000",
   status: "draft",
 };
 
@@ -261,10 +261,10 @@ function ItemForm({
               <RupiahInput
                 value={form.bid_increment}
                 onChange={(v) => setForm({ ...form, bid_increment: v })}
-                onBlurAlign={(n) => Math.max(10000, Math.round(n / 10000) * 10000)}
+                onBlurAlign={(n) => Math.max(1000, Math.round(n / 1000) * 1000)}
                 required
               />
-              <p className="text-xs text-slate-500">Min. Rp 10.000, kelipatan 10.000</p>
+              <p className="text-xs text-slate-500">Min. Rp 1.000, kelipatan 1.000</p>
             </>
           ) : (
             <>
@@ -667,7 +667,7 @@ export function PeriodItemsPanel({
         p_item_condition: form.item_condition.trim() || null,
         p_status: form.status,
         p_starting_price: canEditPricingRole ? startingPrice : 0,
-        p_bid_increment: canEditPricingRole ? bidIncrement : 10000,
+        p_bid_increment: canEditPricingRole ? bidIncrement : 1000,
       });
       setLoading(false);
       if (error || !data) {

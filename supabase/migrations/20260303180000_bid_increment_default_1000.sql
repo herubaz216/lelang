@@ -1,41 +1,13 @@
--- Alokasi nomor LOT + insert item dalam 1 transaksi (aman multi-admin).
-CREATE OR REPLACE FUNCTION public.allocate_next_lot_number(p_period_id uuid)
-RETURNS text
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO public
-AS $$
-DECLARE
-  v_max integer := 0;
-  v_next integer;
-BEGIN
-  IF public.current_user_role() NOT IN ('ga', 'accounting', 'ga_accounting') THEN
-    RAISE EXCEPTION 'Tidak memiliki akses untuk menambah barang';
-  END IF;
+-- Default kelipatan bid admin: Rp 1.000 (sebelumnya Rp 10.000).
+ALTER TABLE public.auction_items
+  DROP CONSTRAINT IF EXISTS auction_items_bid_increment_check;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM public.auction_periods WHERE id = p_period_id
-  ) THEN
-    RAISE EXCEPTION 'Periode tidak ditemukan';
-  END IF;
+ALTER TABLE public.auction_items
+  ADD CONSTRAINT auction_items_bid_increment_check
+  CHECK (bid_increment >= 1000);
 
-  PERFORM 1
-  FROM public.auction_periods
-  WHERE id = p_period_id
-  FOR UPDATE;
-
-  SELECT COALESCE(
-    MAX(NULLIF(substring(ai.lot_number from '([0-9]+)[[:space:]]*$'), '')::integer),
-    0
-  )
-  INTO v_max
-  FROM public.auction_items ai
-  WHERE ai.period_id = p_period_id;
-
-  v_next := v_max + 1;
-  RETURN 'LOT ' || lpad(v_next::text, 3, '0');
-END;
-$$;
+ALTER TABLE public.auction_items
+  ALTER COLUMN bid_increment SET DEFAULT 1000;
 
 CREATE OR REPLACE FUNCTION public.admin_create_auction_item(
   p_period_id uuid,
@@ -68,7 +40,6 @@ BEGIN
     v_increment := 1000;
   END IF;
 
-  -- Lock periode + alokasi LOT di transaksi yang sama dengan insert.
   v_lot := public.allocate_next_lot_number(p_period_id);
 
   INSERT INTO public.auction_items (
@@ -101,7 +72,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.allocate_next_lot_number(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_create_auction_item(
-  uuid, text, text, text, text, text, numeric, numeric
-) TO authenticated;
+UPDATE public.auction_items
+SET bid_increment = 1000,
+    updated_at = now()
+WHERE bid_increment = 10000;
