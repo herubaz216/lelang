@@ -13,9 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Plus, Pencil, Upload, Package, X, Trash2, ImageOff } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Pagination } from "@/components/ui/pagination";
 import { PhotoSourcePicker } from "@/components/admin/photo-source-picker";
 import { ImagePreviewDialog } from "@/components/image-preview-dialog";
-import { cn } from "@/lib/utils";
 import { compressImageFile } from "@/lib/image-compress";
 import { canEditPricing } from "@/lib/roles";
 import { getBidIncrementByStartingPrice } from "@/lib/bid-increment";
@@ -24,6 +24,7 @@ import type { ItemCategory } from "@/lib/database.types";
 import { CategoryFilter } from "@/components/category-filter";
 
 const MAX_PHOTOS = 5;
+const ITEMS_PAGE_SIZE = 20;
 
 const emptyItemForm = {
   lot_number: "",
@@ -157,8 +158,20 @@ function ItemForm({
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   return (
-    <div className="rounded-xl border border-indigo-200 bg-indigo-50/30 p-4">
-      <p className="mb-3 text-sm font-semibold text-slate-900">{title}</p>
+    <div className="rounded-2xl border border-[var(--border)] bg-white p-4 shadow-xl sm:p-5">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <p className="text-sm font-semibold text-slate-900">{title}</p>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 shrink-0 p-0"
+          onClick={onCancel}
+          aria-label="Tutup"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
       <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-white px-3 py-2.5 sm:col-span-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -374,22 +387,26 @@ function ItemRow({
   thumbnailPath,
   onEdit,
   onDelete,
-  disabled,
 }: {
   item: AuctionItem;
   thumbnailPath?: string | null;
   onEdit: (item: AuctionItem) => void;
   onDelete: (item: AuctionItem) => void;
-  disabled?: boolean;
 }) {
   const hasBids = item.current_price > item.starting_price;
 
   return (
     <div
-      className={cn(
-        "flex items-center gap-3 rounded-xl border border-[var(--border)] bg-white p-3 sm:gap-4 sm:p-4",
-        disabled && "opacity-50"
-      )}
+      role="button"
+      tabIndex={0}
+      onClick={() => onEdit(item)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onEdit(item);
+        }
+      }}
+      className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--border)] bg-white p-3 transition-colors hover:border-indigo-200 hover:bg-indigo-50/40 sm:gap-4 sm:p-4"
     >
       <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[var(--border)] bg-slate-100 sm:h-16 sm:w-16">
         {thumbnailPath ? (
@@ -433,8 +450,10 @@ function ItemRow({
           variant="ghost"
           size="sm"
           className="h-8 w-8 p-0"
-          onClick={() => onEdit(item)}
-          disabled={disabled}
+          onClick={(event) => {
+            event.stopPropagation();
+            onEdit(item);
+          }}
           aria-label="Edit barang"
         >
           <Pencil className="h-4 w-4" />
@@ -443,8 +462,10 @@ function ItemRow({
           variant="ghost"
           size="sm"
           className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
-          onClick={() => onDelete(item)}
-          disabled={disabled}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete(item);
+          }}
           aria-label="Hapus barang"
         >
           <Trash2 className="h-4 w-4" />
@@ -477,6 +498,7 @@ export function PeriodItemsPanel({
   const [userRole, setUserRole] = useState<string | null>(null);
   const [categories, setCategories] = useState<ItemCategory[]>([]);
   const [activeCategory, setActiveCategory] = useState("all");
+  const [page, setPage] = useState(1);
   const supabase = createClient();
 
   const canEditPricingRole = canEditPricing(userRole);
@@ -551,7 +573,17 @@ export function PeriodItemsPanel({
     setEditingCurrentPrice(undefined);
     setPhotos([]);
     setActiveCategory("all");
+    setPage(1);
   }, [periodId]);
+
+  useEffect(() => {
+    if (!isFormOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isFormOpen]);
 
   useEffect(() => {
     fetchItemCategories(supabase)
@@ -585,7 +617,6 @@ export function PeriodItemsPanel({
 
   function startEdit(item: AuctionItem) {
     setAddingNew(false);
-    setActiveCategory("all");
     setEditingId(item.id);
     setEditingCurrentPrice(item.current_price);
     setForm({
@@ -614,7 +645,6 @@ export function PeriodItemsPanel({
   async function startAdd() {
     setEditingId(null);
     setEditingCurrentPrice(undefined);
-    setActiveCategory("all");
     setPhotos([]);
 
     const lotNumber = (await allocateLotNumber()) ?? getNextLotNumber(items);
@@ -837,6 +867,22 @@ export function PeriodItemsPanel({
     return items.filter((item) => item.category === activeCategory);
   }, [items, activeCategory]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+
+  const pagedItems = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PAGE_SIZE;
+    return filteredItems.slice(start, start + ITEMS_PAGE_SIZE);
+  }, [filteredItems, currentPage]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeCategory]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
   const formProps = {
     form,
     setForm,
@@ -865,26 +911,24 @@ export function PeriodItemsPanel({
                 : `${filteredItems.length} dari ${items.length} lot`}
             </p>
           </div>
-          {!isFormOpen && (
-            <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
-              <PeriodExportButton
-                period={period}
-                itemCount={items.length}
-                className="w-full sm:w-auto"
-              />
-              <Button
-                variant="primary"
-                size="sm"
-                className="w-full whitespace-nowrap sm:w-auto"
-                onClick={startAdd}
-              >
-                <Plus className="h-4 w-4" />
-                Tambah Barang
-              </Button>
-            </div>
-          )}
+          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
+            <PeriodExportButton
+              period={period}
+              itemCount={items.length}
+              className="w-full sm:w-auto"
+            />
+            <Button
+              variant="primary"
+              size="sm"
+              className="w-full whitespace-nowrap sm:w-auto"
+              onClick={startAdd}
+            >
+              <Plus className="h-4 w-4" />
+              Tambah Barang
+            </Button>
+          </div>
         </div>
-        {!isFormOpen && items.length > 0 && (
+        {items.length > 0 && (
           <CategoryFilter
             categories={categoryFilterOptions}
             activeCategory={activeCategory}
@@ -894,8 +938,8 @@ export function PeriodItemsPanel({
         )}
       </div>
 
-      <div className="p-4 sm:p-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-        {items.length === 0 && !addingNew ? (
+      <div className="flex flex-col p-4 sm:p-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+        {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Package className="h-10 w-10 text-slate-300" />
             <p className="mt-3 text-sm text-slate-500">Belum ada barang dalam periode ini.</p>
@@ -909,7 +953,7 @@ export function PeriodItemsPanel({
               Tambah Barang
             </Button>
           </div>
-        ) : filteredItems.length === 0 && !isFormOpen ? (
+        ) : filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Package className="h-10 w-10 text-slate-300" />
             <p className="mt-3 text-sm text-slate-500">
@@ -925,32 +969,50 @@ export function PeriodItemsPanel({
             </Button>
           </div>
         ) : (
-          <div className="space-y-2">
-            {filteredItems.map((item) =>
-              editingId === item.id ? (
-                <ItemForm
-                  key={item.id}
-                  {...formProps}
-                  title={`Edit — ${item.lot_number}`}
-                />
-              ) : (
+          <>
+            <div className="space-y-2">
+              {pagedItems.map((item) => (
                 <ItemRow
                   key={item.id}
                   item={item}
                   thumbnailPath={itemThumbnails[item.id]}
                   onEdit={startEdit}
                   onDelete={requestDeleteItem}
-                  disabled={isFormOpen}
                 />
-              )
-            )}
-
-            {addingNew && (
-              <ItemForm {...formProps} title="Tambah Barang Baru" isNew />
-            )}
-          </div>
+              ))}
+            </div>
+            <Pagination
+              page={currentPage}
+              pageSize={ITEMS_PAGE_SIZE}
+              total={filteredItems.length}
+              onPageChange={setPage}
+              className="mt-4"
+            />
+          </>
         )}
       </div>
+
+      {isFormOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:items-center">
+          <button
+            type="button"
+            aria-label="Tutup form barang"
+            className="fixed inset-0 bg-black/40"
+            onClick={cancelForm}
+          />
+          <div className="relative z-10 my-4 w-full max-w-2xl">
+            <ItemForm
+              {...formProps}
+              title={
+                addingNew
+                  ? "Tambah Barang Baru"
+                  : `Edit — ${form.lot_number || "Barang"}`
+              }
+              isNew={addingNew}
+            />
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={deleteTarget !== null}
