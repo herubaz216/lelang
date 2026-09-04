@@ -155,7 +155,7 @@ export function FavoritesMenu({ className }: { className?: string }) {
             className="fixed inset-0 z-40"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,22rem)] overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-xl">
+          <div className="fixed inset-x-3 top-[4.25rem] z-50 overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[22rem]">
             <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
               <div>
                 <p className="text-sm font-semibold text-slate-900">Favorit</p>
