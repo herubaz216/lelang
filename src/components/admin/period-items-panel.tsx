@@ -73,6 +73,7 @@ const emptyItemForm = {
   starting_price: "0",
   bid_increment: String(getBidIncrementByStartingPrice(0)),
   status: "draft",
+  payment_confirmed: false,
 };
 
 function formatLotNumber(n: number): string {
@@ -224,11 +225,11 @@ function ItemForm({
             </div>
             {form.category && <CategoryBadge name={form.category} />}
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-4">
             {statusLocked ? (
               <Badge status={form.status} />
             ) : (
-              <>
+              <div className="flex items-center gap-2.5">
                 <Label htmlFor="item-active" className="text-sm text-slate-600">
                   Aktif
                 </Label>
@@ -239,8 +240,25 @@ function ItemForm({
                     setForm({ ...form, status: checked ? "active" : "draft" })
                   }
                 />
-              </>
+              </div>
             )}
+            <div className="flex flex-col items-end gap-0.5">
+              <div className="flex items-center gap-2.5">
+                <Label htmlFor="item-paid" className="text-sm text-slate-600">
+                  Konfirmasi Bayar
+                </Label>
+                <Switch
+                  id="item-paid"
+                  checked={form.payment_confirmed}
+                  onCheckedChange={(checked) =>
+                    setForm({ ...form, payment_confirmed: checked })
+                  }
+                />
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Tandai jika pemenang sudah bayar
+              </p>
+            </div>
           </div>
         </div>
         <div className="space-y-1.5 sm:col-span-2">
@@ -472,6 +490,11 @@ function ItemRow({
             {item.lot_number}
           </span>
           {item.category && <CategoryBadge name={item.category} />}
+          {item.payment_confirmed && (
+            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20">
+              Lunas
+            </span>
+          )}
         </div>
         <h3 className="mt-1 truncate font-medium text-slate-900">{item.item_name}</h3>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm">
@@ -689,6 +712,7 @@ export function PeriodItemsPanel({
       starting_price: String(item.starting_price),
       bid_increment: String(item.bid_increment),
       status: item.status,
+      payment_confirmed: Boolean(item.payment_confirmed),
     });
   }
 
@@ -737,6 +761,8 @@ export function PeriodItemsPanel({
       description: string;
       item_condition: string | null;
       status: string;
+      payment_confirmed: boolean;
+      payment_confirmed_at: string | null;
       starting_price?: number;
       bid_increment?: number;
     } = {
@@ -745,6 +771,10 @@ export function PeriodItemsPanel({
       description: form.description.trim(),
       item_condition: form.item_condition.trim() || null,
       status: form.status,
+      payment_confirmed: form.payment_confirmed,
+      payment_confirmed_at: form.payment_confirmed
+        ? new Date().toISOString()
+        : null,
     };
 
     if (canEditPricingRole) {
@@ -753,6 +783,13 @@ export function PeriodItemsPanel({
     }
 
     if (editingId) {
+      const existing = items.find((item) => item.id === editingId);
+      basePayload.payment_confirmed_at = form.payment_confirmed
+        ? existing?.payment_confirmed && existing.payment_confirmed_at
+          ? existing.payment_confirmed_at
+          : new Date().toISOString()
+        : null;
+
       const { error } = await supabase
         .from("auction_items")
         .update(basePayload)
@@ -783,6 +820,17 @@ export function PeriodItemsPanel({
           : error?.message ?? "Gagal menambah barang";
         toast.error(message);
         return;
+      }
+
+      if (form.payment_confirmed) {
+        await supabase
+          .from("auction_items")
+          .update({
+            payment_confirmed: true,
+            payment_confirmed_at: new Date().toISOString(),
+          })
+          .eq("id", data.id);
+        data.payment_confirmed = true;
       }
       toast.success(
         `Barang ${data.lot_number} ditambahkan — tambahkan foto (maks. 5)`

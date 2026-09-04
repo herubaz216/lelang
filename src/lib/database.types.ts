@@ -119,6 +119,8 @@ export type Database = {
           item_condition: string | null;
           item_name: string;
           lot_number: string;
+          payment_confirmed: boolean;
+          payment_confirmed_at: string | null;
           period_id: string;
           starting_price: number;
           status: string;
@@ -136,6 +138,8 @@ export type Database = {
           item_condition?: string | null;
           item_name: string;
           lot_number: string;
+          payment_confirmed?: boolean;
+          payment_confirmed_at?: string | null;
           period_id: string;
           starting_price?: number;
           status?: string;
@@ -153,6 +157,8 @@ export type Database = {
           item_condition?: string | null;
           item_name?: string;
           lot_number?: string;
+          payment_confirmed?: boolean;
+          payment_confirmed_at?: string | null;
           period_id?: string;
           starting_price?: number;
           status?: string;
