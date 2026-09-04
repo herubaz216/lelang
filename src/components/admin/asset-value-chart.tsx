@@ -53,10 +53,18 @@ function ChartTooltip({
 }
 
 export function AssetValueChart({ totals }: { totals: CompanyAssetTotals }) {
-  const { startingTotal, biddingTotal, itemCount } = totals;
-  const uplift = biddingTotal - startingTotal;
+  const {
+    startingTotal,
+    biddingTotal,
+    biddingBaseTotal,
+    itemCount,
+    itemsWithBids,
+  } = totals;
+  const uplift = biddingTotal - biddingBaseTotal;
   const upliftPct =
-    startingTotal > 0 ? Math.round((uplift / startingTotal) * 1000) / 10 : 0;
+    biddingBaseTotal > 0
+      ? Math.round((uplift / biddingBaseTotal) * 1000) / 10
+      : 0;
 
   const chartData: ChartRow[] = [
     { name: "Nilai Awal", value: startingTotal, color: "#94a3b8" },
@@ -72,7 +80,7 @@ export function AssetValueChart({ totals }: { totals: CompanyAssetTotals }) {
           <div>
             <CardTitle>Nilai Aset Lelang</CardTitle>
             <p className="mt-1 text-sm text-slate-500">
-              Perbandingan total harga awal vs nilai terkini dari bidding
+              Total harga awal vs jumlah bid tertinggi tiap barang
             </p>
           </div>
           {hasData && uplift !== 0 && (
@@ -115,7 +123,9 @@ export function AssetValueChart({ totals }: { totals: CompanyAssetTotals }) {
                 <p className="mt-1 text-xl font-bold text-indigo-950">
                   {formatRupiah(biddingTotal)}
                 </p>
-                <p className="mt-0.5 text-xs text-indigo-600/80">Harga terkini semua lot</p>
+                <p className="mt-0.5 text-xs text-indigo-600/80">
+                  Sum bid tertinggi · {itemsWithBids} barang sudah ada bid
+                </p>
               </div>
             </div>
 

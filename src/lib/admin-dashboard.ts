@@ -6,7 +6,11 @@ type AppSupabase = SupabaseClient<Database>;
 export type CompanyAssetTotals = {
   itemCount: number;
   startingTotal: number;
+  /** Sum of highest bid per item (items without bids = 0). */
   biddingTotal: number;
+  /** Sum of starting_price for items that already have bids. */
+  biddingBaseTotal: number;
+  itemsWithBids: number;
 };
 
 export async function fetchCompanyAssetTotals(
@@ -20,25 +24,68 @@ export async function fetchCompanyAssetTotals(
 
   const periodIds = (periods ?? []).map((period) => period.id);
   if (periodIds.length === 0) {
-    return { itemCount: 0, startingTotal: 0, biddingTotal: 0 };
+    return {
+      itemCount: 0,
+      startingTotal: 0,
+      biddingTotal: 0,
+      biddingBaseTotal: 0,
+      itemsWithBids: 0,
+    };
   }
 
   const { data: items } = await supabase
     .from("auction_items")
-    .select("starting_price, current_price")
+    .select("id, starting_price")
     .in("period_id", periodIds);
 
-  let startingTotal = 0;
-  let biddingTotal = 0;
+  const itemList = items ?? [];
+  const itemIds = itemList.map((item) => item.id);
 
-  for (const item of items ?? []) {
-    startingTotal += item.starting_price;
-    biddingTotal += item.current_price;
+  let startingTotal = 0;
+  for (const item of itemList) {
+    startingTotal += Number(item.starting_price) || 0;
+  }
+
+  if (itemIds.length === 0) {
+    return {
+      itemCount: 0,
+      startingTotal: 0,
+      biddingTotal: 0,
+      biddingBaseTotal: 0,
+      itemsWithBids: 0,
+    };
+  }
+
+  const { data: bids } = await supabase
+    .from("bids")
+    .select("item_id, amount")
+    .in("item_id", itemIds)
+    .neq("status", "cancelled");
+
+  // Harga tertinggi per barang saja (bukan jumlah semua bid).
+  const maxBidByItem = new Map<string, number>();
+  for (const bid of bids ?? []) {
+    const amount = Number(bid.amount) || 0;
+    const prev = maxBidByItem.get(bid.item_id) ?? 0;
+    if (amount > prev) {
+      maxBidByItem.set(bid.item_id, amount);
+    }
+  }
+
+  let biddingTotal = 0;
+  let biddingBaseTotal = 0;
+  for (const item of itemList) {
+    const maxBid = maxBidByItem.get(item.id);
+    if (maxBid == null) continue;
+    biddingTotal += maxBid;
+    biddingBaseTotal += Number(item.starting_price) || 0;
   }
 
   return {
-    itemCount: items?.length ?? 0,
+    itemCount: itemList.length,
     startingTotal,
     biddingTotal,
+    biddingBaseTotal,
+    itemsWithBids: maxBidByItem.size,
   };
 }
