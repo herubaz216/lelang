@@ -26,6 +26,43 @@ import { CategoryFilter } from "@/components/category-filter";
 const MAX_PHOTOS = 5;
 const ITEMS_PAGE_SIZE = 20;
 
+type ItemSortKey = "lot" | "name_asc" | "name_desc" | "price_asc" | "price_desc";
+
+const ITEM_SORT_OPTIONS: { value: ItemSortKey; label: string }[] = [
+  { value: "lot", label: "No. Lot" },
+  { value: "name_asc", label: "Nama A–Z" },
+  { value: "name_desc", label: "Nama Z–A" },
+  { value: "price_asc", label: "Harga terendah" },
+  { value: "price_desc", label: "Harga tertinggi" },
+];
+
+function compareLotNumber(a: string, b: string): number {
+  const numA = Number(a.match(/(\d+)\s*$/)?.[1] ?? Number.MAX_SAFE_INTEGER);
+  const numB = Number(b.match(/(\d+)\s*$/)?.[1] ?? Number.MAX_SAFE_INTEGER);
+  if (numA !== numB) return numA - numB;
+  return a.localeCompare(b, "id");
+}
+
+function sortAuctionItems(items: AuctionItem[], sortKey: ItemSortKey): AuctionItem[] {
+  const sorted = [...items];
+  sorted.sort((a, b) => {
+    switch (sortKey) {
+      case "name_asc":
+        return a.item_name.localeCompare(b.item_name, "id", { sensitivity: "base" });
+      case "name_desc":
+        return b.item_name.localeCompare(a.item_name, "id", { sensitivity: "base" });
+      case "price_asc":
+        return a.starting_price - b.starting_price || compareLotNumber(a.lot_number, b.lot_number);
+      case "price_desc":
+        return b.starting_price - a.starting_price || compareLotNumber(a.lot_number, b.lot_number);
+      case "lot":
+      default:
+        return compareLotNumber(a.lot_number, b.lot_number);
+    }
+  });
+  return sorted;
+}
+
 const emptyItemForm = {
   lot_number: "",
   item_name: "",
@@ -500,6 +537,7 @@ export function PeriodItemsPanel({
   const [activeCategory, setActiveCategory] = useState("all");
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortKey, setSortKey] = useState<ItemSortKey>("lot");
   const supabase = createClient();
 
   const canEditPricingRole = canEditPricing(userRole);
@@ -575,6 +613,7 @@ export function PeriodItemsPanel({
     setPhotos([]);
     setActiveCategory("all");
     setSearchQuery("");
+    setSortKey("lot");
     setPage(1);
   }, [periodId]);
 
@@ -866,14 +905,15 @@ export function PeriodItemsPanel({
 
   const filteredItems = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return items.filter((item) => {
+    const filtered = items.filter((item) => {
       if (activeCategory !== "all" && item.category !== activeCategory) {
         return false;
       }
       if (!query) return true;
       return item.item_name.toLowerCase().includes(query);
     });
-  }, [items, activeCategory, searchQuery]);
+    return sortAuctionItems(filtered, sortKey);
+  }, [items, activeCategory, searchQuery, sortKey]);
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -885,7 +925,7 @@ export function PeriodItemsPanel({
 
   useEffect(() => {
     setPage(1);
-  }, [activeCategory, searchQuery]);
+  }, [activeCategory, searchQuery, sortKey]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -938,24 +978,38 @@ export function PeriodItemsPanel({
         </div>
         {items.length > 0 && (
           <>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari nama barang..."
-                className="h-10 pl-9 pr-9"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                  aria-label="Hapus pencarian"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari nama barang..."
+                  className="h-10 pl-9 pr-9"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                    aria-label="Hapus pencarian"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <Select
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as ItemSortKey)}
+                className="h-10 w-full sm:w-48"
+                aria-label="Urutkan barang"
+              >
+                {ITEM_SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    Urut: {option.label}
+                  </option>
+                ))}
+              </Select>
             </div>
             <CategoryFilter
               categories={categoryFilterOptions}
