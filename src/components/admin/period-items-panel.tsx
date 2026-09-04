@@ -11,7 +11,7 @@ import { Input, Label, Textarea, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Upload, Package, X, Trash2, ImageOff, Search } from "lucide-react";
+import { Plus, Pencil, Upload, Package, X, Trash2, ImageOff, Search, Copy } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Pagination } from "@/components/ui/pagination";
 import { PhotoSourcePicker } from "@/components/admin/photo-source-picker";
@@ -19,6 +19,7 @@ import { ImagePreviewDialog } from "@/components/image-preview-dialog";
 import { compressImageFile } from "@/lib/image-compress";
 import { canEditPricing } from "@/lib/roles";
 import { getBidIncrementByStartingPrice } from "@/lib/bid-increment";
+import { nextDuplicateItemName } from "@/lib/item-duplicate";
 import { fetchItemCategories } from "@/lib/item-categories";
 import type { ItemCategory } from "@/lib/database.types";
 import { CategoryFilter } from "@/components/category-filter";
@@ -423,12 +424,16 @@ function ItemRow({
   item,
   thumbnailPath,
   onEdit,
+  onDuplicate,
   onDelete,
+  duplicating,
 }: {
   item: AuctionItem;
   thumbnailPath?: string | null;
   onEdit: (item: AuctionItem) => void;
+  onDuplicate: (item: AuctionItem) => void;
   onDelete: (item: AuctionItem) => void;
+  duplicating?: boolean;
 }) {
   const hasBids = item.current_price > item.starting_price;
 
@@ -498,6 +503,20 @@ function ItemRow({
         <Button
           variant="ghost"
           size="sm"
+          className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDuplicate(item);
+          }}
+          disabled={duplicating}
+          aria-label="Duplikasi barang"
+          title="Duplikasi barang"
+        >
+          <Copy className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
           onClick={(event) => {
             event.stopPropagation();
@@ -532,6 +551,7 @@ export function PeriodItemsPanel({
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AuctionItem | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [categories, setCategories] = useState<ItemCategory[]>([]);
   const [activeCategory, setActiveCategory] = useState("all");
@@ -850,6 +870,63 @@ export function PeriodItemsPanel({
     setDeleteTarget(item);
   }
 
+  async function handleDuplicateItem(item: AuctionItem) {
+    if (duplicatingId) return;
+    setDuplicatingId(item.id);
+
+    try {
+      const { data: created, error } = await supabase.rpc("admin_create_auction_item", {
+        p_period_id: periodId,
+        p_item_name: nextDuplicateItemName(item.item_name),
+        p_category: item.category,
+        p_description: item.description,
+        p_item_condition: item.item_condition,
+        p_status: "draft",
+        p_starting_price: item.starting_price,
+        p_bid_increment: item.bid_increment,
+      });
+
+      if (error || !created) {
+        toast.error(error?.message ?? "Gagal menduplikasi barang");
+        return;
+      }
+
+      const { data: sourcePhotos } = await supabase
+        .from("item_photos")
+        .select("*")
+        .eq("item_id", item.id)
+        .order("sort_order");
+
+      for (const photo of sourcePhotos ?? []) {
+        try {
+          const response = await fetch(getPhotoUrl(photo.storage_path));
+          if (!response.ok) continue;
+          const blob = await response.blob();
+          const path = `${created.id}/${Date.now()}-${photo.sort_order}.jpg`;
+          const { error: uploadError } = await supabase.storage
+            .from("auction-photos")
+            .upload(path, blob, { contentType: blob.type || "image/jpeg" });
+          if (uploadError) continue;
+
+          await supabase.from("item_photos").insert({
+            item_id: created.id,
+            storage_path: path,
+            sort_order: photo.sort_order,
+          });
+        } catch {
+          // Skip photo copy failures; item itself already created.
+        }
+      }
+
+      toast.success(`Duplikat dibuat: ${created.lot_number} — ${created.item_name}`);
+      await loadItems();
+      onItemsChange?.();
+      startEdit(created);
+    } finally {
+      setDuplicatingId(null);
+    }
+  }
+
   async function confirmDeleteItem() {
     if (!deleteTarget) return;
 
@@ -1065,7 +1142,9 @@ export function PeriodItemsPanel({
                   item={item}
                   thumbnailPath={itemThumbnails[item.id]}
                   onEdit={startEdit}
+                  onDuplicate={handleDuplicateItem}
                   onDelete={requestDeleteItem}
+                  duplicating={duplicatingId === item.id}
                 />
               ))}
             </div>

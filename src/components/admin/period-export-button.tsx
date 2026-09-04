@@ -28,8 +28,9 @@ export function PeriodExportButton({
 
     setExporting(true);
     try {
+      toast.message("Menyiapkan Excel + foto, mohon tunggu...");
       await downloadPeriodExcel(supabase, period);
-      toast.success("Excel berhasil diunduh");
+      toast.success("Excel berhasil diunduh (dengan foto)");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Gagal mengekspor data periode"
