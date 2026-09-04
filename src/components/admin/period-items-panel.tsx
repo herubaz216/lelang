@@ -27,7 +27,14 @@ import { CategoryFilter } from "@/components/category-filter";
 const MAX_PHOTOS = 5;
 const ITEMS_PAGE_SIZE = 20;
 
-type ItemSortKey = "lot" | "name_asc" | "name_desc" | "price_asc" | "price_desc";
+type ItemSortKey =
+  | "lot"
+  | "name_asc"
+  | "name_desc"
+  | "price_asc"
+  | "price_desc"
+  | "paid_first"
+  | "unpaid_first";
 
 const ITEM_SORT_OPTIONS: { value: ItemSortKey; label: string }[] = [
   { value: "lot", label: "No. Lot" },
@@ -35,6 +42,8 @@ const ITEM_SORT_OPTIONS: { value: ItemSortKey; label: string }[] = [
   { value: "name_desc", label: "Nama Z–A" },
   { value: "price_asc", label: "Harga terendah" },
   { value: "price_desc", label: "Harga tertinggi" },
+  { value: "paid_first", label: "Sudah dibayar" },
+  { value: "unpaid_first", label: "Belum dibayar" },
 ];
 
 function compareLotNumber(a: string, b: string): number {
@@ -56,6 +65,16 @@ function sortAuctionItems(items: AuctionItem[], sortKey: ItemSortKey): AuctionIt
         return a.starting_price - b.starting_price || compareLotNumber(a.lot_number, b.lot_number);
       case "price_desc":
         return b.starting_price - a.starting_price || compareLotNumber(a.lot_number, b.lot_number);
+      case "paid_first": {
+        const paidA = a.payment_confirmed ? 0 : 1;
+        const paidB = b.payment_confirmed ? 0 : 1;
+        return paidA - paidB || compareLotNumber(a.lot_number, b.lot_number);
+      }
+      case "unpaid_first": {
+        const unpaidA = a.payment_confirmed ? 1 : 0;
+        const unpaidB = b.payment_confirmed ? 1 : 0;
+        return unpaidA - unpaidB || compareLotNumber(a.lot_number, b.lot_number);
+      }
       case "lot":
       default:
         return compareLotNumber(a.lot_number, b.lot_number);
@@ -1094,7 +1113,6 @@ export function PeriodItemsPanel({
               period={period}
               itemCount={exportItemCount}
               category={activeCategory}
-              className="w-full sm:w-auto"
             />
             <Button
               variant="primary"
@@ -1132,7 +1150,7 @@ export function PeriodItemsPanel({
               <Select
                 value={sortKey}
                 onChange={(e) => setSortKey(e.target.value as ItemSortKey)}
-                className="h-10 w-full sm:w-48"
+                className="h-10 w-full sm:w-52"
                 aria-label="Urutkan barang"
               >
                 {ITEM_SORT_OPTIONS.map((option) => (

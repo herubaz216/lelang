@@ -85,10 +85,15 @@ async function makeExcelThumbnail(
   }
 }
 
+export type PeriodExcelExportOptions = {
+  includeImages?: boolean;
+};
+
 export async function fetchPeriodExportData(
   supabase: SupabaseClient<Database>,
   period: AuctionPeriod,
-  category: string | null = null
+  category: string | null = null,
+  _options: PeriodExcelExportOptions = {}
 ) {
   let itemsQuery = supabase
     .from("auction_items")
@@ -190,9 +195,13 @@ export async function fetchPeriodExportData(
 export async function downloadPeriodExcel(
   supabase: SupabaseClient<Database>,
   period: AuctionPeriod,
-  category: string | null = null
+  category: string | null = null,
+  options: PeriodExcelExportOptions = {}
 ) {
-  const data = await fetchPeriodExportData(supabase, period, category);
+  const includeImages = options.includeImages !== false;
+  const data = await fetchPeriodExportData(supabase, period, category, {
+    includeImages,
+  });
   const ExcelJS = (await import("exceljs")).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "E-Lelang";
@@ -208,6 +217,7 @@ export async function downloadPeriodExcel(
     ["Judul Periode", data.period.title],
     ["Status Periode", statusLabel(data.period.status)],
     ["Filter Kategori", data.category ?? "Semua"],
+    ["Mode Export", includeImages ? "Dengan foto" : "Tanpa foto"],
     ["Deskripsi", data.period.description ?? "-"],
     ["Mulai", formatDateTime(data.period.start_at)],
     ["Selesai", formatDateTime(data.period.end_at)],
@@ -220,10 +230,9 @@ export async function downloadPeriodExcel(
   infoSheet.getRow(1).font = { bold: true, size: 14 };
 
   const itemsSheet = workbook.addWorksheet("Barang Lelang");
-  const photoHeaders = Array.from(
-    { length: MAX_PHOTOS_IN_EXPORT },
-    (_, i) => `Foto ${i + 1}`
-  );
+  const photoHeaders = includeImages
+    ? Array.from({ length: MAX_PHOTOS_IN_EXPORT }, (_, i) => `Foto ${i + 1}`)
+    : [];
   itemsSheet.columns = [
     { header: "No", key: "no", width: 6 },
     ...photoHeaders.map((header, index) => ({
@@ -240,6 +249,7 @@ export async function downloadPeriodExcel(
     { header: "Kelipatan Bid", key: "increment", width: 14 },
     { header: "Harga Terakhir", key: "current", width: 14 },
     { header: "Status", key: "status", width: 12 },
+    { header: "Konfirmasi Bayar", key: "paid", width: 14 },
     { header: "Jumlah Bid", key: "bids", width: 10 },
     { header: "Jumlah Foto", key: "photoCount", width: 11 },
     { header: "Pemenang (Alias)", key: "winnerAlias", width: 16 },
@@ -267,6 +277,7 @@ export async function downloadPeriodExcel(
       increment: item.bid_increment,
       current: item.current_price,
       status: statusLabel(item.status),
+      paid: item.payment_confirmed ? "Lunas" : "Belum",
       bids: data.bidCounts[item.id] ?? 0,
       photoCount: paths.length,
       winnerAlias: winner?.winner_alias ?? "-",
@@ -275,8 +286,10 @@ export async function downloadPeriodExcel(
       created: formatDateTime(item.created_at),
       updated: formatDateTime(item.updated_at),
     });
-    excelRow.height = paths.length > 0 ? 58 : 18;
+    excelRow.height = includeImages && paths.length > 0 ? 58 : 18;
     excelRow.alignment = { vertical: "middle" };
+
+    if (!includeImages) continue;
 
     const rowNumber = excelRow.number;
     for (let photoIndex = 0; photoIndex < paths.length; photoIndex++) {
@@ -348,13 +361,16 @@ export async function downloadPeriodExcel(
   summarySheet.addRow([]);
   summarySheet.addRow(["Catatan"]);
   summarySheet.addRow([
-    "Foto ditampilkan sebagai thumbnail kecil di kolom. File asli tetap tersedia di storage aplikasi.",
+    includeImages
+      ? "Foto ditampilkan sebagai thumbnail kecil di kolom. File asli tetap tersedia di storage aplikasi."
+      : "Export tanpa foto — kolom gambar tidak disertakan.",
   ]);
 
   const safeCode = period.code.replace(/[^\w-]+/g, "_");
   const safeCategory = data.category
     ? `-${data.category.replace(/[^\w-]+/g, "_")}`
     : "";
+  const imageSuffix = includeImages ? "" : "-no-foto";
   const dateStamp = new Date().toISOString().slice(0, 10);
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], {
@@ -363,7 +379,7 @@ export async function downloadPeriodExcel(
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `lelang-${safeCode}${safeCategory}-${dateStamp}.xlsx`;
+  anchor.download = `lelang-${safeCode}${safeCategory}${imageSuffix}-${dateStamp}.xlsx`;
   anchor.click();
   URL.revokeObjectURL(url);
 }
