@@ -87,15 +87,26 @@ async function makeExcelThumbnail(
 
 export async function fetchPeriodExportData(
   supabase: SupabaseClient<Database>,
-  period: AuctionPeriod
+  period: AuctionPeriod,
+  category: string | null = null
 ) {
+  let itemsQuery = supabase
+    .from("auction_items")
+    .select("*")
+    .eq("period_id", period.id)
+    .order("lot_number");
+
+  if (category && category !== "all") {
+    if (category === "Lainnya") {
+      itemsQuery = itemsQuery.or("category.eq.Lainnya,category.is.null");
+    } else {
+      itemsQuery = itemsQuery.eq("category", category);
+    }
+  }
+
   const [{ data: items, error: itemsError }, { data: company }] =
     await Promise.all([
-      supabase
-        .from("auction_items")
-        .select("*")
-        .eq("period_id", period.id)
-        .order("lot_number"),
+      itemsQuery,
       supabase
         .from("companies")
         .select("short_name, name")
@@ -157,7 +168,7 @@ export async function fetchPeriodExportData(
     if (error) {
       throw new Error(error.message);
     }
-    winners = data ?? [];
+    winners = (data ?? []).filter((row) => itemIds.includes(row.item_id));
   }
 
   const winnerByItem = new Map(winners.map((row) => [row.item_id, row]));
@@ -166,6 +177,7 @@ export async function fetchPeriodExportData(
   return {
     period,
     company,
+    category: category && category !== "all" ? category : null,
     items: periodItems,
     bids,
     bidCounts,
@@ -177,9 +189,10 @@ export async function fetchPeriodExportData(
 
 export async function downloadPeriodExcel(
   supabase: SupabaseClient<Database>,
-  period: AuctionPeriod
+  period: AuctionPeriod,
+  category: string | null = null
 ) {
-  const data = await fetchPeriodExportData(supabase, period);
+  const data = await fetchPeriodExportData(supabase, period, category);
   const ExcelJS = (await import("exceljs")).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "E-Lelang";
@@ -194,6 +207,7 @@ export async function downloadPeriodExcel(
     ["Kode Periode", data.period.code],
     ["Judul Periode", data.period.title],
     ["Status Periode", statusLabel(data.period.status)],
+    ["Filter Kategori", data.category ?? "Semua"],
     ["Deskripsi", data.period.description ?? "-"],
     ["Mulai", formatDateTime(data.period.start_at)],
     ["Selesai", formatDateTime(data.period.end_at)],
@@ -338,6 +352,9 @@ export async function downloadPeriodExcel(
   ]);
 
   const safeCode = period.code.replace(/[^\w-]+/g, "_");
+  const safeCategory = data.category
+    ? `-${data.category.replace(/[^\w-]+/g, "_")}`
+    : "";
   const dateStamp = new Date().toISOString().slice(0, 10);
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], {
@@ -346,7 +363,7 @@ export async function downloadPeriodExcel(
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `lelang-${safeCode}-${dateStamp}.xlsx`;
+  anchor.download = `lelang-${safeCode}${safeCategory}-${dateStamp}.xlsx`;
   anchor.click();
   URL.revokeObjectURL(url);
 }

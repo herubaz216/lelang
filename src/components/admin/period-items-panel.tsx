@@ -992,6 +992,11 @@ export function PeriodItemsPanel({
     return sortAuctionItems(filtered, sortKey);
   }, [items, activeCategory, searchQuery, sortKey]);
 
+  const exportItemCount = useMemo(() => {
+    if (activeCategory === "all") return items.length;
+    return items.filter((item) => item.category === activeCategory).length;
+  }, [items, activeCategory]);
+
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
 
@@ -1039,7 +1044,8 @@ export function PeriodItemsPanel({
           <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
             <PeriodExportButton
               period={period}
-              itemCount={items.length}
+              itemCount={exportItemCount}
+              category={activeCategory}
               className="w-full sm:w-auto"
             />
             <Button
