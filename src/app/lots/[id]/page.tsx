@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { formatRupiah } from "@/lib/format";
 import { isPeriodBiddingOpen, isPeriodClosed } from "@/lib/auction";
 import { ArrowLeft, Lock } from "lucide-react";
+import { FavoriteButton } from "@/components/favorite-button";
 
 export default async function LotDetailPage({
   params,
@@ -81,19 +82,22 @@ export default async function LotDetailPage({
 
             <div className="space-y-5">
               <div>
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <span className="rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">
-                    {item.lot_number}
-                  </span>
-                  <Badge status={item.status} />
-                  {periodClosed && (
-                    <span className="inline-flex items-center rounded-full bg-slate-800 px-2.5 py-0.5 text-xs font-semibold text-white">
-                      Closed
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">
+                      {item.lot_number}
                     </span>
-                  )}
-                  {item.category && (
-                    <span className="text-sm text-slate-500">{item.category}</span>
-                  )}
+                    <Badge status={item.status} />
+                    {periodClosed && (
+                      <span className="inline-flex items-center rounded-full bg-slate-800 px-2.5 py-0.5 text-xs font-semibold text-white">
+                        Closed
+                      </span>
+                    )}
+                    {item.category && (
+                      <span className="text-sm text-slate-500">{item.category}</span>
+                    )}
+                  </div>
+                  <FavoriteButton itemId={item.id} />
                 </div>
                 <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
                   {item.item_name}

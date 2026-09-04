@@ -314,6 +314,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      favorites: {
+        Row: {
+          id: string;
+          user_id: string;
+          item_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          item_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          item_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       item_photos: {
         Row: {
           created_at: string;
@@ -620,6 +641,7 @@ export type AuctionItem = Database["public"]["Tables"]["auction_items"]["Row"];
 export type AuctionPeriod = Database["public"]["Tables"]["auction_periods"]["Row"];
 export type BidderProfile = Database["public"]["Tables"]["bidder_profiles"]["Row"];
 export type Bid = Database["public"]["Tables"]["bids"]["Row"];
+export type Favorite = Database["public"]["Tables"]["favorites"]["Row"];
 export type ItemPhoto = Database["public"]["Tables"]["item_photos"]["Row"];
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export type PushSubscription = Database["public"]["Tables"]["push_subscriptions"]["Row"];

@@ -7,6 +7,7 @@ import { Gavel, Menu } from "lucide-react";
 import { NavbarAuth } from "@/components/navbar-auth";
 import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
 import { PushNotificationPrompt } from "@/components/push-notification-prompt";
+import { FavoritesMenu } from "@/components/favorites-menu";
 import { createClient } from "@/lib/supabase/client";
 import { Profile } from "@/lib/database.types";
 import { cn } from "@/lib/utils";
@@ -138,6 +139,7 @@ function NavbarContent() {
           </div>
 
           <div className="flex items-center gap-2">
+            <FavoritesMenu />
             <PushNotificationPrompt variant="navbar" />
             <NavbarAuth profile={profile} />
           </div>
