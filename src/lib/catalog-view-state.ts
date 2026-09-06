@@ -8,6 +8,7 @@ export type CatalogViewState = {
   hasMore: boolean;
   offset: number;
   scrollY: number;
+  anchorItemId?: string | null;
   savedAt: number;
 };
 
@@ -21,9 +22,26 @@ export function catalogViewKey(companyId: string, periodId: string | null) {
 export function saveCatalogView(state: CatalogViewState) {
   if (typeof window === "undefined") return;
   try {
+    const key = catalogViewKey(state.companyId, state.periodId);
+    const existing = loadCatalogView(state.companyId, state.periodId);
+
+    // Jangan timpa posisi bagus dengan scrollY=0 saat unmount/navigasi.
+    const nextScrollY =
+      state.scrollY <= 0 && existing && existing.scrollY > 0
+        ? existing.scrollY
+        : state.scrollY;
+
+    const nextAnchor =
+      state.anchorItemId ?? existing?.anchorItemId ?? null;
+
     sessionStorage.setItem(
-      catalogViewKey(state.companyId, state.periodId),
-      JSON.stringify(state)
+      key,
+      JSON.stringify({
+        ...state,
+        scrollY: nextScrollY,
+        anchorItemId: nextAnchor,
+        savedAt: Date.now(),
+      } satisfies CatalogViewState)
     );
   } catch {
     // Ignore quota / private mode errors.
@@ -52,6 +70,10 @@ export function loadCatalogView(
 export function saveScrollPosition(key: string, scrollY: number) {
   if (typeof window === "undefined") return;
   try {
+    if (scrollY <= 0) {
+      const existing = loadScrollPosition(key);
+      if (existing != null && existing > 0) return;
+    }
     sessionStorage.setItem(
       `${PREFIX}scroll:${key}`,
       JSON.stringify({ scrollY, savedAt: Date.now() })
@@ -74,14 +96,49 @@ export function loadScrollPosition(key: string): number | null {
   }
 }
 
-export function restoreWindowScroll(scrollY: number) {
+export function restoreWindowScroll(
+  scrollY: number,
+  options?: { anchorId?: string | null }
+) {
   if (typeof window === "undefined") return;
+
   const html = document.documentElement;
   const previous = html.style.scrollBehavior;
   html.style.scrollBehavior = "auto";
-  window.scrollTo(0, scrollY);
+
+  const apply = () => {
+    if (options?.anchorId) {
+      const el = document.getElementById(options.anchorId);
+      if (el) {
+        el.scrollIntoView({ block: "center", behavior: "auto" });
+        return true;
+      }
+    }
+
+    window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
+    return Math.abs(window.scrollY - scrollY) < 80 || scrollY <= 0;
+  };
+
+  apply();
   requestAnimationFrame(() => {
-    window.scrollTo(0, scrollY);
+    apply();
     html.style.scrollBehavior = previous;
   });
+}
+
+/** Retry restore until layout height catches up (images / infinite list). */
+export function restoreCatalogScroll(
+  scrollY: number,
+  options?: { anchorId?: string | null }
+) {
+  if (typeof window === "undefined") return () => {};
+
+  const delays = [0, 50, 100, 200, 400, 700, 1200];
+  const timers = delays.map((delay) =>
+    window.setTimeout(() => restoreWindowScroll(scrollY, options), delay)
+  );
+
+  return () => {
+    for (const timer of timers) window.clearTimeout(timer);
+  };
 }

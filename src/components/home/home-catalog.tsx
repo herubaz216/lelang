@@ -12,7 +12,7 @@ import {
 } from "@/lib/auction";
 import {
   loadCatalogView,
-  restoreWindowScroll,
+  restoreCatalogScroll,
   saveCatalogView,
 } from "@/lib/catalog-view-state";
 import { LotCard } from "@/components/lot-card";
@@ -53,6 +53,12 @@ export function HomeCatalog({
   const skipCategoryFetch = useRef(true);
   const restoredRef = useRef(false);
   const pendingScrollY = useRef<number | null>(null);
+  const pendingAnchorId = useRef<string | null>(null);
+  const lastScrollY = useRef(0);
+  const itemsRef = useRef(items);
+  const categoryRef = useRef(activeCategory);
+  const hasMoreRef = useRef(hasMore);
+  const offsetRef = useRef(offset);
   const biddingOpen = isPeriodBiddingOpen(period);
   const periodClosed = isPeriodClosed(period);
   const statusLabel = getPeriodStatusLabel(period);
@@ -63,23 +69,56 @@ export function HomeCatalog({
   const activeCategoryInfo = categories.find((c) => c.name === activeCategory);
   const activeCategoryCount = activeCategoryInfo?.count ?? 0;
 
-  const persistView = useCallback(() => {
-    if (!period) return;
-    saveCatalogView({
-      companyId: company.id,
-      periodId: period.id,
-      category: activeCategory,
-      items,
-      hasMore,
-      offset,
-      scrollY: window.scrollY,
-      savedAt: Date.now(),
-    });
-  }, [activeCategory, company.id, hasMore, items, offset, period]);
+  itemsRef.current = items;
+  categoryRef.current = activeCategory;
+  hasMoreRef.current = hasMore;
+  offsetRef.current = offset;
+
+  const persistView = useCallback(
+    (overrides?: { scrollY?: number; anchorItemId?: string | null }) => {
+      if (!period) return;
+      const scrollY =
+        overrides?.scrollY ??
+        (typeof window !== "undefined"
+          ? Math.max(window.scrollY, lastScrollY.current)
+          : lastScrollY.current);
+
+      if (typeof window !== "undefined" && window.scrollY > 0) {
+        lastScrollY.current = window.scrollY;
+      }
+
+      saveCatalogView({
+        companyId: company.id,
+        periodId: period.id,
+        category: categoryRef.current,
+        items: itemsRef.current,
+        hasMore: hasMoreRef.current,
+        offset: offsetRef.current,
+        scrollY,
+        anchorItemId: overrides?.anchorItemId,
+        savedAt: Date.now(),
+      });
+    },
+    [company.id, period]
+  );
+
+  const handleLotNavigate = useCallback(
+    (itemId: string) => {
+      if (typeof window !== "undefined" && window.scrollY > 0) {
+        lastScrollY.current = window.scrollY;
+      }
+      persistView({
+        scrollY: lastScrollY.current,
+        anchorItemId: itemId,
+      });
+    },
+    [persistView]
+  );
 
   useEffect(() => {
     restoredRef.current = false;
     pendingScrollY.current = null;
+    pendingAnchorId.current = null;
     const cached = loadCatalogView(company.id, period?.id ?? null);
     if (cached && cached.items.length > 0) {
       setActiveCategory(cached.category || defaultCategory);
@@ -89,6 +128,8 @@ export function HomeCatalog({
       skipCategoryFetch.current = true;
       restoredRef.current = true;
       pendingScrollY.current = cached.scrollY;
+      pendingAnchorId.current = cached.anchorItemId ?? null;
+      lastScrollY.current = cached.scrollY;
       return;
     }
 
@@ -104,14 +145,12 @@ export function HomeCatalog({
   useEffect(() => {
     if (pendingScrollY.current == null || items.length === 0) return;
     const y = pendingScrollY.current;
+    const anchorId = pendingAnchorId.current
+      ? `lot-${pendingAnchorId.current}`
+      : null;
     pendingScrollY.current = null;
-    restoreWindowScroll(y);
-    const t1 = window.setTimeout(() => restoreWindowScroll(y), 50);
-    const t2 = window.setTimeout(() => restoreWindowScroll(y), 200);
-    return () => {
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-    };
+    pendingAnchorId.current = null;
+    return restoreCatalogScroll(y, { anchorId });
   }, [items]);
 
   useEffect(() => {
@@ -122,26 +161,27 @@ export function HomeCatalog({
 
     let ticking = false;
     const onScroll = () => {
+      if (window.scrollY > 0) {
+        lastScrollY.current = window.scrollY;
+      }
       if (ticking) return;
       ticking = true;
       window.requestAnimationFrame(() => {
-        persistView();
+        persistView({ scrollY: lastScrollY.current });
         ticking = false;
       });
     };
 
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("pagehide", persistView);
     return () => {
-      persistView();
+      // Jangan persist scrollY dari window di sini — sering sudah 0 saat unmount.
       window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("pagehide", persistView);
     };
   }, [period, persistView]);
 
   useEffect(() => {
     if (!period || restoredRef.current) return;
-    persistView();
+    persistView({ scrollY: lastScrollY.current });
   }, [items, hasMore, offset, activeCategory, period, persistView]);
 
   const loadMore = useCallback(
@@ -377,13 +417,14 @@ export function HomeCatalog({
             {items.length > 0 ? (
               <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4 lg:gap-6">
                 {items.map(({ item, photos, bidCount }) => (
-                  <div key={item.id} className="animate-in">
+                  <div key={item.id} id={`lot-${item.id}`} className="animate-in scroll-mt-24">
                     <LotCard
                       item={item}
                       photos={photos}
                       bidCount={bidCount}
                       biddingClosed={!biddingOpen}
                       category={activeCategory}
+                      onNavigate={handleLotNavigate}
                     />
                   </div>
                 ))}

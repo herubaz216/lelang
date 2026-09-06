@@ -11,17 +11,25 @@ export function LotCard({
   bidCount = 0,
   biddingClosed,
   category,
+  onNavigate,
 }: {
   item: AuctionItem;
   photos?: ItemPhoto[];
   bidCount?: number;
   biddingClosed?: boolean;
   category?: string | null;
+  onNavigate?: (itemId: string) => void;
 }) {
   const photo = photos?.[0];
 
   return (
-    <Link href={lotDetailHref(item.id, category)} className="group block" scroll>
+    <Link
+      href={lotDetailHref(item.id, category)}
+      className="group block"
+      scroll={false}
+      onClick={() => onNavigate?.(item.id)}
+      onPointerDown={() => onNavigate?.(item.id)}
+    >
       <article className="overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-sm transition-shadow hover:shadow-md sm:rounded-2xl">
         <div className="relative aspect-square overflow-hidden bg-slate-100 sm:aspect-[4/3]">
           {photo ? (

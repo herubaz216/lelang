@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { LotCard } from "@/components/lot-card";
 import { AuctionItem, ItemPhoto } from "@/lib/database.types";
 import {
   loadScrollPosition,
-  restoreWindowScroll,
+  restoreCatalogScroll,
   saveScrollPosition,
 } from "@/lib/catalog-view-state";
 
@@ -23,6 +23,7 @@ export function LotsGrid({
   items: LotListItem[];
 }) {
   const scrollKey = `lots:${companyId}`;
+  const lastScrollY = useRef(0);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -31,39 +32,57 @@ export function LotsGrid({
     }
 
     const saved = loadScrollPosition(scrollKey);
-    if (saved != null) {
-      restoreWindowScroll(saved);
+    let rawAnchor: string | null = null;
+    try {
+      rawAnchor = sessionStorage.getItem(`${scrollKey}:anchor`);
+    } catch {
+      rawAnchor = null;
     }
 
+    const cancelRestore =
+      saved != null || rawAnchor
+        ? restoreCatalogScroll(saved ?? 0, {
+            anchorId: rawAnchor ? `lot-${rawAnchor}` : null,
+          })
+        : () => {};
+
     let ticking = false;
-    const persist = () => saveScrollPosition(scrollKey, window.scrollY);
     const onScroll = () => {
+      if (window.scrollY > 0) lastScrollY.current = window.scrollY;
       if (ticking) return;
       ticking = true;
       window.requestAnimationFrame(() => {
-        persist();
+        saveScrollPosition(scrollKey, lastScrollY.current);
         ticking = false;
       });
     };
 
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("pagehide", persist);
     return () => {
-      persist();
+      cancelRestore();
       window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("pagehide", persist);
     };
   }, [scrollKey]);
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3">
       {items.map(({ item, photos, bidCount }) => (
-        <LotCard
-          key={item.id}
-          item={item}
-          photos={photos}
-          bidCount={bidCount}
-        />
+        <div key={item.id} id={`lot-${item.id}`} className="scroll-mt-24">
+          <LotCard
+            item={item}
+            photos={photos}
+            bidCount={bidCount}
+            onNavigate={(itemId) => {
+              if (window.scrollY > 0) lastScrollY.current = window.scrollY;
+              saveScrollPosition(scrollKey, lastScrollY.current);
+              try {
+                sessionStorage.setItem(`${scrollKey}:anchor`, itemId);
+              } catch {
+                // ignore
+              }
+            }}
+          />
+        </div>
       ))}
     </div>
   );
