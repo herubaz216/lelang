@@ -14,9 +14,9 @@ import {
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ company?: string }>;
+  searchParams: Promise<{ company?: string; focus?: string }>;
 }) {
-  const { company: companyParam } = await searchParams;
+  const { company: companyParam, focus: focusParam } = await searchParams;
   const companies = await fetchCompanies();
   const companyCode = resolveCompanyCode(companyParam, companies);
   const company =
@@ -51,7 +51,7 @@ export default async function HomePage({
       <CompanySwitcher companies={companies} activeCompany={company} />
       <main className="flex-1">
         <HomeCatalog
-          key={`${company.id}-${period?.id ?? "none"}`}
+          key={`${company.id}-${period?.id ?? "none"}-${focusParam ?? "nofocus"}`}
           company={company}
           period={period}
           categories={categories}
@@ -59,6 +59,7 @@ export default async function HomePage({
           initialHasMore={hasMore}
           totalItems={catalogTotal}
           initialCategory={initialCategory}
+          focusItemId={focusParam?.trim() || null}
         />
       </main>
       <Footer />

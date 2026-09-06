@@ -7,15 +7,20 @@ import { ChevronRight } from "lucide-react";
 export function LotDetailNav({
   nextItem,
   category,
+  catalogReturnHref,
 }: {
   nextItem: NextLotItem | null;
   category?: string | null;
+  catalogReturnHref: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <BackButton fallbackHref="/" />
+      <BackButton
+        fallbackHref={catalogReturnHref}
+        catalogReturnHref={catalogReturnHref}
+      />
       {nextItem ? (
-        <Link href={lotDetailHref(nextItem.id, category)} className="shrink-0">
+        <Link href={lotDetailHref(nextItem.id, category)} className="shrink-0" scroll>
           <Button type="button" variant="outline" size="sm" className="gap-1.5">
             <span className="max-w-[9rem] truncate sm:max-w-[14rem]">
               Next: {nextItem.lot_number}

@@ -15,6 +15,8 @@ import { FavoriteButton } from "@/components/favorite-button";
 import { LotDetailNav } from "@/components/lot-detail-nav";
 import { ScrollToTopOnMount } from "@/components/scroll-to-top-on-mount";
 import { fetchNextLotItem } from "@/lib/lot-navigation";
+import { buildCatalogReturnHref } from "@/lib/catalog-view-state";
+import { fetchCompanyById } from "@/lib/companies";
 
 export default async function LotDetailPage({
   params,
@@ -54,6 +56,14 @@ export default async function LotDetailPage({
     }),
   ]);
 
+  const company = period
+    ? await fetchCompanyById(period.company_id)
+    : null;
+  const catalogReturnHref = buildCatalogReturnHref({
+    companyCode: company?.code,
+    focusItemId: item.id,
+  });
+
   const biddingOpen = isPeriodBiddingOpen(period);
   const periodClosed = isPeriodClosed(period);
 
@@ -64,7 +74,11 @@ export default async function LotDetailPage({
       <main className="flex-1">
         <div className="border-b border-[var(--border)] bg-white">
           <div className="container-app py-4">
-            <LotDetailNav nextItem={nextItem} category={category} />
+            <LotDetailNav
+              nextItem={nextItem}
+              category={category}
+              catalogReturnHref={catalogReturnHref}
+            />
           </div>
         </div>
 

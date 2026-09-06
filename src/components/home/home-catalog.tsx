@@ -13,6 +13,7 @@ import {
 import {
   consumeCatalogRestorePending,
   getWindowScrollY,
+  loadCatalogRestorePointer,
   loadCatalogView,
   markCatalogRestorePending,
   peekCatalogRestorePending,
@@ -38,6 +39,7 @@ export function HomeCatalog({
   initialHasMore,
   totalItems,
   initialCategory,
+  focusItemId = null,
 }: {
   company: Company;
   period: AuctionPeriod | null;
@@ -46,6 +48,7 @@ export function HomeCatalog({
   initialHasMore: boolean;
   totalItems: number;
   initialCategory: string;
+  focusItemId?: string | null;
 }) {
   const defaultCategory = initialCategory || categories[0]?.name || "";
   const [activeCategory, setActiveCategory] = useState(defaultCategory);
@@ -138,17 +141,36 @@ export function HomeCatalog({
     restoredRef.current = false;
     pendingScrollY.current = null;
     pendingAnchorId.current = null;
-    const cached = loadCatalogView(company.id, period?.id ?? null);
 
-    // iPhone/Android back: pakai cache kalau ada posisi/list tersimpan.
-    if (
-      cached &&
-      cached.items.length > 0 &&
-      (cached.scrollY > 0 ||
-        cached.anchorItemId ||
-        peekCatalogRestorePending())
-    ) {
-      applyCachedView(cached);
+    const pointer = loadCatalogRestorePointer();
+    const cached = loadCatalogView(company.id, period?.id ?? null);
+    const focusId =
+      focusItemId ||
+      pointer?.anchorItemId ||
+      cached?.anchorItemId ||
+      null;
+
+    const shouldRestore =
+      Boolean(focusId) ||
+      peekCatalogRestorePending() ||
+      Boolean(cached && (cached.scrollY > 0 || cached.anchorItemId));
+
+    if (shouldRestore && cached && cached.items.length > 0) {
+      applyCachedView({
+        ...cached,
+        anchorItemId: focusId || cached.anchorItemId,
+      });
+      return;
+    }
+
+    if (shouldRestore && focusId) {
+      // Cache list hilang (Safari), tetap coba scroll ke lot jika ada di initial page.
+      restoredRef.current = true;
+      pendingScrollY.current = pointer?.scrollY ?? 0;
+      pendingAnchorId.current = focusId;
+      if (pointer?.category) {
+        setActiveCategory(pointer.category);
+      }
       return;
     }
 
@@ -157,13 +179,24 @@ export function HomeCatalog({
     setHasMore(initialHasMore);
     setOffset(initialItems.length);
     skipCategoryFetch.current = true;
-    // Reset only when company/period changes, not on every RSC prop refresh.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [company.id, period?.id]);
+  }, [company.id, period?.id, focusItemId]);
 
   useEffect(() => {
-    if (pendingScrollY.current == null || items.length === 0) return;
-    const y = pendingScrollY.current;
+    if (!focusItemId || typeof window === "undefined") return;
+    // Hapus ?focus= tanpa memicu scroll Next.js.
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("focus")) return;
+    url.searchParams.delete("focus");
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(window.history.state, "", next);
+  }, [focusItemId]);
+
+  useEffect(() => {
+    if (pendingScrollY.current == null && !pendingAnchorId.current) return;
+    if (items.length === 0 && !pendingAnchorId.current) return;
+
+    const y = pendingScrollY.current ?? 0;
     const anchorId = pendingAnchorId.current
       ? `lot-${pendingAnchorId.current}`
       : null;
@@ -171,7 +204,7 @@ export function HomeCatalog({
     pendingAnchorId.current = null;
     consumeCatalogRestorePending();
     return restoreCatalogScroll(y, { anchorId });
-  }, [items]);
+  }, [items, focusItemId]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !period) return;
