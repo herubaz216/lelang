@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { AuctionItem, ItemPhoto } from "@/lib/database.types";
 import { formatRupiah, getPhotoUrl } from "@/lib/format";
+import { lotDetailHref } from "@/lib/lot-navigation";
 import { Gavel } from "lucide-react";
 
 export function LotCard({
@@ -9,16 +10,18 @@ export function LotCard({
   photos,
   bidCount = 0,
   biddingClosed,
+  category,
 }: {
   item: AuctionItem;
   photos?: ItemPhoto[];
   bidCount?: number;
   biddingClosed?: boolean;
+  category?: string | null;
 }) {
   const photo = photos?.[0];
 
   return (
-    <Link href={`/lots/${item.id}`} className="group block" scroll>
+    <Link href={lotDetailHref(item.id, category)} className="group block" scroll>
       <article className="overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-sm transition-shadow hover:shadow-md sm:rounded-2xl">
         <div className="relative aspect-square overflow-hidden bg-slate-100 sm:aspect-[4/3]">
           {photo ? (

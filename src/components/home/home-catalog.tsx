@@ -383,6 +383,7 @@ export function HomeCatalog({
                       photos={photos}
                       bidCount={bidCount}
                       biddingClosed={!biddingOpen}
+                      category={activeCategory}
                     />
                   </div>
                 ))}

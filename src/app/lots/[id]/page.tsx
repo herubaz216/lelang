@@ -12,14 +12,19 @@ import { formatRupiah } from "@/lib/format";
 import { isPeriodBiddingOpen, isPeriodClosed } from "@/lib/auction";
 import { Lock } from "lucide-react";
 import { FavoriteButton } from "@/components/favorite-button";
-import { BackButton } from "@/components/back-button";
+import { LotDetailNav } from "@/components/lot-detail-nav";
+import { fetchNextLotItem } from "@/lib/lot-navigation";
 
 export default async function LotDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ category?: string }>;
 }) {
   const { id } = await params;
+  const { category: categoryParam } = await searchParams;
+  const category = categoryParam?.trim() || null;
   const supabase = await createClient();
 
   const { data: item } = await supabase
@@ -30,17 +35,23 @@ export default async function LotDetailPage({
 
   if (!item) notFound();
 
-  const { data: photos } = await supabase
-    .from("item_photos")
-    .select("*")
-    .eq("item_id", id)
-    .order("sort_order");
-
-  const { data: period } = await supabase
-    .from("auction_periods")
-    .select("*")
-    .eq("id", item.period_id)
-    .maybeSingle();
+  const [{ data: photos }, { data: period }, nextItem] = await Promise.all([
+    supabase
+      .from("item_photos")
+      .select("*")
+      .eq("item_id", id)
+      .order("sort_order"),
+    supabase
+      .from("auction_periods")
+      .select("*")
+      .eq("id", item.period_id)
+      .maybeSingle(),
+    fetchNextLotItem({
+      periodId: item.period_id,
+      currentLotNumber: item.lot_number,
+      category,
+    }),
+  ]);
 
   const biddingOpen = isPeriodBiddingOpen(period);
   const periodClosed = isPeriodClosed(period);
@@ -51,7 +62,7 @@ export default async function LotDetailPage({
       <main className="flex-1">
         <div className="border-b border-[var(--border)] bg-white">
           <div className="container-app py-4">
-            <BackButton fallbackHref="/" />
+            <LotDetailNav nextItem={nextItem} category={category} />
           </div>
         </div>
 
