@@ -13,10 +13,61 @@ export type CatalogViewState = {
 };
 
 const PREFIX = "lelang:catalog-view:";
+const PENDING_FLAG = `${PREFIX}pending-restore`;
 const MAX_AGE_MS = 30 * 60 * 1000;
 
 export function catalogViewKey(companyId: string, periodId: string | null) {
   return `${PREFIX}${companyId}:${periodId ?? "none"}`;
+}
+
+/** iOS Safari sering beda antara scrollY / pageYOffset / scrollTop. */
+export function getWindowScrollY(): number {
+  if (typeof window === "undefined") return 0;
+  return (
+    window.scrollY ||
+    window.pageYOffset ||
+    document.documentElement.scrollTop ||
+    document.body.scrollTop ||
+    0
+  );
+}
+
+export function setWindowScrollY(scrollY: number) {
+  if (typeof window === "undefined") return;
+  const y = Math.max(0, scrollY);
+  // Legacy 2-arg form paling andal di iOS Safari.
+  window.scrollTo(0, y);
+  document.documentElement.scrollTop = y;
+  document.body.scrollTop = y;
+}
+
+export function markCatalogRestorePending() {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(PENDING_FLAG, "1");
+  } catch {
+    // ignore
+  }
+}
+
+export function consumeCatalogRestorePending(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const value = sessionStorage.getItem(PENDING_FLAG);
+    if (value) sessionStorage.removeItem(PENDING_FLAG);
+    return value === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function peekCatalogRestorePending(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(PENDING_FLAG) === "1";
+  } catch {
+    return false;
+  }
 }
 
 export function saveCatalogView(state: CatalogViewState) {
@@ -100,42 +151,64 @@ export function restoreWindowScroll(
   scrollY: number,
   options?: { anchorId?: string | null }
 ) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") return false;
 
   const html = document.documentElement;
-  const previous = html.style.scrollBehavior;
+  const previousBehavior = html.style.scrollBehavior;
   html.style.scrollBehavior = "auto";
+  html.classList.add("scroll-restore-lock");
 
-  const apply = () => {
+  let ok = false;
+
+  if (options?.anchorId) {
+    const el = document.getElementById(options.anchorId);
+    if (el) {
+      const top =
+        el.getBoundingClientRect().top + getWindowScrollY() - 96;
+      setWindowScrollY(top);
+      // Fallback tambahan untuk WebKit.
+      el.scrollIntoView(true);
+      ok = true;
+    }
+  }
+
+  if (!ok) {
+    setWindowScrollY(scrollY);
+    ok = Math.abs(getWindowScrollY() - scrollY) < 120 || scrollY <= 0;
+  }
+
+  requestAnimationFrame(() => {
     if (options?.anchorId) {
       const el = document.getElementById(options.anchorId);
       if (el) {
-        el.scrollIntoView({ block: "center", behavior: "auto" });
-        return true;
+        const top =
+          el.getBoundingClientRect().top + getWindowScrollY() - 96;
+        setWindowScrollY(top);
+      } else {
+        setWindowScrollY(scrollY);
       }
+    } else {
+      setWindowScrollY(scrollY);
     }
-
-    window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
-    return Math.abs(window.scrollY - scrollY) < 80 || scrollY <= 0;
-  };
-
-  apply();
-  requestAnimationFrame(() => {
-    apply();
-    html.style.scrollBehavior = previous;
+    html.style.scrollBehavior = previousBehavior;
+    html.classList.remove("scroll-restore-lock");
   });
+
+  return ok;
 }
 
-/** Retry restore until layout height catches up (images / infinite list). */
+/** Retry restore — delay lebih panjang untuk iOS Safari / bfcache. */
 export function restoreCatalogScroll(
   scrollY: number,
   options?: { anchorId?: string | null }
 ) {
   if (typeof window === "undefined") return () => {};
 
-  const delays = [0, 50, 100, 200, 400, 700, 1200];
+  const delays = [0, 16, 50, 100, 200, 350, 500, 800, 1200, 1800, 2500];
   const timers = delays.map((delay) =>
-    window.setTimeout(() => restoreWindowScroll(scrollY, options), delay)
+    window.setTimeout(() => {
+      restoreWindowScroll(scrollY, options);
+    }, delay)
   );
 
   return () => {

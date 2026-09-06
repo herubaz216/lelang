@@ -28,6 +28,7 @@ export function LotCard({
       className="group block"
       onClick={() => onNavigate?.(item.id)}
       onPointerDown={() => onNavigate?.(item.id)}
+      onTouchStart={() => onNavigate?.(item.id)}
     >
       <article className="overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-sm transition-shadow hover:shadow-md sm:rounded-2xl">
         <div className="relative aspect-square overflow-hidden bg-slate-100 sm:aspect-[4/3]">

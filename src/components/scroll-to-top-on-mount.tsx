@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { setWindowScrollY } from "@/lib/catalog-view-state";
 
 /** Pastikan halaman detail lot selalu mulai dari atas. */
 export function ScrollToTopOnMount() {
@@ -9,14 +10,13 @@ export function ScrollToTopOnMount() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const html = document.documentElement;
-    const previous = html.style.scrollBehavior;
-    html.style.scrollBehavior = "auto";
-    window.scrollTo(0, 0);
-    requestAnimationFrame(() => {
-      window.scrollTo(0, 0);
-      html.style.scrollBehavior = previous;
-    });
+    setWindowScrollY(0);
+    const t1 = window.setTimeout(() => setWindowScrollY(0), 50);
+    const t2 = window.setTimeout(() => setWindowScrollY(0), 200);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
   }, [pathname]);
 
   return null;

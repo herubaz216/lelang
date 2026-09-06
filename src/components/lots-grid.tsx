@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { LotCard } from "@/components/lot-card";
 import { AuctionItem, ItemPhoto } from "@/lib/database.types";
 import {
+  getWindowScrollY,
   loadScrollPosition,
   restoreCatalogScroll,
   saveScrollPosition,
@@ -48,7 +49,8 @@ export function LotsGrid({
 
     let ticking = false;
     const onScroll = () => {
-      if (window.scrollY > 0) lastScrollY.current = window.scrollY;
+      const y = getWindowScrollY();
+      if (y > 0) lastScrollY.current = y;
       if (ticking) return;
       ticking = true;
       window.requestAnimationFrame(() => {
@@ -57,10 +59,26 @@ export function LotsGrid({
       });
     };
 
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted && saved == null && !rawAnchor) return;
+      const latest = loadScrollPosition(scrollKey) ?? saved ?? 0;
+      let anchor: string | null = rawAnchor;
+      try {
+        anchor = sessionStorage.getItem(`${scrollKey}:anchor`);
+      } catch {
+        // keep
+      }
+      restoreCatalogScroll(latest, {
+        anchorId: anchor ? `lot-${anchor}` : null,
+      });
+    };
+
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("pageshow", onPageShow);
     return () => {
       cancelRestore();
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("pageshow", onPageShow);
     };
   }, [scrollKey]);
 
@@ -73,7 +91,8 @@ export function LotsGrid({
             photos={photos}
             bidCount={bidCount}
             onNavigate={(itemId) => {
-              if (window.scrollY > 0) lastScrollY.current = window.scrollY;
+              const y = getWindowScrollY();
+              if (y > 0) lastScrollY.current = y;
               saveScrollPosition(scrollKey, lastScrollY.current);
               try {
                 sessionStorage.setItem(`${scrollKey}:anchor`, itemId);

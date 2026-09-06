@@ -36,7 +36,12 @@
 }
 
 html {
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
+}
+
+html.scroll-restore-lock,
+html.scroll-restore-lock * {
+  scroll-behavior: auto !important;
 }
 
 body {

@@ -11,7 +11,11 @@ import {
   isPeriodClosed,
 } from "@/lib/auction";
 import {
+  consumeCatalogRestorePending,
+  getWindowScrollY,
   loadCatalogView,
+  markCatalogRestorePending,
+  peekCatalogRestorePending,
   restoreCatalogScroll,
   saveCatalogView,
 } from "@/lib/catalog-view-state";
@@ -77,14 +81,12 @@ export function HomeCatalog({
   const persistView = useCallback(
     (overrides?: { scrollY?: number; anchorItemId?: string | null }) => {
       if (!period) return;
+      const liveScroll = getWindowScrollY();
       const scrollY =
-        overrides?.scrollY ??
-        (typeof window !== "undefined"
-          ? Math.max(window.scrollY, lastScrollY.current)
-          : lastScrollY.current);
+        overrides?.scrollY ?? Math.max(liveScroll, lastScrollY.current);
 
-      if (typeof window !== "undefined" && window.scrollY > 0) {
-        lastScrollY.current = window.scrollY;
+      if (liveScroll > 0) {
+        lastScrollY.current = liveScroll;
       }
 
       saveCatalogView({
@@ -104,9 +106,11 @@ export function HomeCatalog({
 
   const handleLotNavigate = useCallback(
     (itemId: string) => {
-      if (typeof window !== "undefined" && window.scrollY > 0) {
-        lastScrollY.current = window.scrollY;
+      const liveScroll = getWindowScrollY();
+      if (liveScroll > 0) {
+        lastScrollY.current = liveScroll;
       }
+      markCatalogRestorePending();
       persistView({
         scrollY: lastScrollY.current,
         anchorItemId: itemId,
@@ -115,12 +119,8 @@ export function HomeCatalog({
     [persistView]
   );
 
-  useEffect(() => {
-    restoredRef.current = false;
-    pendingScrollY.current = null;
-    pendingAnchorId.current = null;
-    const cached = loadCatalogView(company.id, period?.id ?? null);
-    if (cached && cached.items.length > 0) {
+  const applyCachedView = useCallback(
+    (cached: NonNullable<ReturnType<typeof loadCatalogView>>) => {
       setActiveCategory(cached.category || defaultCategory);
       setItems(cached.items);
       setHasMore(cached.hasMore);
@@ -130,6 +130,25 @@ export function HomeCatalog({
       pendingScrollY.current = cached.scrollY;
       pendingAnchorId.current = cached.anchorItemId ?? null;
       lastScrollY.current = cached.scrollY;
+    },
+    [defaultCategory]
+  );
+
+  useEffect(() => {
+    restoredRef.current = false;
+    pendingScrollY.current = null;
+    pendingAnchorId.current = null;
+    const cached = loadCatalogView(company.id, period?.id ?? null);
+
+    // iPhone/Android back: pakai cache kalau ada posisi/list tersimpan.
+    if (
+      cached &&
+      cached.items.length > 0 &&
+      (cached.scrollY > 0 ||
+        cached.anchorItemId ||
+        peekCatalogRestorePending())
+    ) {
+      applyCachedView(cached);
       return;
     }
 
@@ -150,6 +169,7 @@ export function HomeCatalog({
       : null;
     pendingScrollY.current = null;
     pendingAnchorId.current = null;
+    consumeCatalogRestorePending();
     return restoreCatalogScroll(y, { anchorId });
   }, [items]);
 
@@ -161,8 +181,9 @@ export function HomeCatalog({
 
     let ticking = false;
     const onScroll = () => {
-      if (window.scrollY > 0) {
-        lastScrollY.current = window.scrollY;
+      const y = getWindowScrollY();
+      if (y > 0) {
+        lastScrollY.current = y;
       }
       if (ticking) return;
       ticking = true;
@@ -172,12 +193,35 @@ export function HomeCatalog({
       });
     };
 
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      // Jangan persist scrollY dari window di sini — sering sudah 0 saat unmount.
-      window.removeEventListener("scroll", onScroll);
+    // iOS Safari sering restore via bfcache — effect mount tidak jalan ulang.
+    const onPageShow = (event: PageTransitionEvent) => {
+      const cached = loadCatalogView(company.id, period.id);
+      if (!cached || cached.items.length === 0) return;
+
+      const needsRestore =
+        event.persisted ||
+        peekCatalogRestorePending() ||
+        Boolean(cached.anchorItemId);
+
+      if (!needsRestore) return;
+
+      if (cached.items.length !== itemsRef.current.length) {
+        applyCachedView(cached);
+      } else {
+        consumeCatalogRestorePending();
+        restoreCatalogScroll(cached.scrollY, {
+          anchorId: cached.anchorItemId ? `lot-${cached.anchorItemId}` : null,
+        });
+      }
     };
-  }, [period, persistView]);
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, [period, persistView, company.id, applyCachedView]);
 
   useEffect(() => {
     if (!period || restoredRef.current) return;
