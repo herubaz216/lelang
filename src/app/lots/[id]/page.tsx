@@ -13,6 +13,7 @@ import { isPeriodBiddingOpen, isPeriodClosed } from "@/lib/auction";
 import { Lock } from "lucide-react";
 import { FavoriteButton } from "@/components/favorite-button";
 import { LotDetailNav } from "@/components/lot-detail-nav";
+import { ScrollToTopOnMount } from "@/components/scroll-to-top-on-mount";
 import { fetchNextLotItem } from "@/lib/lot-navigation";
 
 export default async function LotDetailPage({
@@ -58,6 +59,7 @@ export default async function LotDetailPage({
 
   return (
     <div className="flex min-h-screen flex-col">
+      <ScrollToTopOnMount />
       <Navbar />
       <main className="flex-1">
         <div className="border-b border-[var(--border)] bg-white">

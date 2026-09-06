@@ -26,7 +26,6 @@ export function LotCard({
     <Link
       href={lotDetailHref(item.id, category)}
       className="group block"
-      scroll={false}
       onClick={() => onNavigate?.(item.id)}
       onPointerDown={() => onNavigate?.(item.id)}
     >
