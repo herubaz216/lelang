@@ -562,6 +562,13 @@ export type Database = {
           bidder_alias: string;
         }[];
       };
+      get_item_bid_counts: {
+        Args: { p_item_ids: string[] };
+        Returns: {
+          item_id: string;
+          bid_count: number;
+        }[];
+      };
       place_public_bid: {
         Args: {
           p_amount: number;

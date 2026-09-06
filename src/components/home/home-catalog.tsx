@@ -10,6 +10,11 @@ import {
   isPeriodBiddingOpen,
   isPeriodClosed,
 } from "@/lib/auction";
+import {
+  loadCatalogView,
+  restoreWindowScroll,
+  saveCatalogView,
+} from "@/lib/catalog-view-state";
 import { LotCard } from "@/components/lot-card";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { Package, Gavel, Timer, Lock, Trophy } from "lucide-react";
@@ -38,15 +43,16 @@ export function HomeCatalog({
   totalItems: number;
   initialCategory: string;
 }) {
-  const [activeCategory, setActiveCategory] = useState(
-    initialCategory || categories[0]?.name || ""
-  );
+  const defaultCategory = initialCategory || categories[0]?.name || "";
+  const [activeCategory, setActiveCategory] = useState(defaultCategory);
   const [items, setItems] = useState(initialItems);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loading, setLoading] = useState(false);
   const [offset, setOffset] = useState(initialItems.length);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const skipCategoryFetch = useRef(true);
+  const restoredRef = useRef(false);
+  const pendingScrollY = useRef<number | null>(null);
   const biddingOpen = isPeriodBiddingOpen(period);
   const periodClosed = isPeriodClosed(period);
   const statusLabel = getPeriodStatusLabel(period);
@@ -57,14 +63,86 @@ export function HomeCatalog({
   const activeCategoryInfo = categories.find((c) => c.name === activeCategory);
   const activeCategoryCount = activeCategoryInfo?.count ?? 0;
 
+  const persistView = useCallback(() => {
+    if (!period) return;
+    saveCatalogView({
+      companyId: company.id,
+      periodId: period.id,
+      category: activeCategory,
+      items,
+      hasMore,
+      offset,
+      scrollY: window.scrollY,
+      savedAt: Date.now(),
+    });
+  }, [activeCategory, company.id, hasMore, items, offset, period]);
+
   useEffect(() => {
-    const nextCategory = initialCategory || categories[0]?.name || "";
-    setActiveCategory(nextCategory);
+    restoredRef.current = false;
+    pendingScrollY.current = null;
+    const cached = loadCatalogView(company.id, period?.id ?? null);
+    if (cached && cached.items.length > 0) {
+      setActiveCategory(cached.category || defaultCategory);
+      setItems(cached.items);
+      setHasMore(cached.hasMore);
+      setOffset(cached.offset);
+      skipCategoryFetch.current = true;
+      restoredRef.current = true;
+      pendingScrollY.current = cached.scrollY;
+      return;
+    }
+
+    setActiveCategory(defaultCategory);
     setItems(initialItems);
     setHasMore(initialHasMore);
     setOffset(initialItems.length);
     skipCategoryFetch.current = true;
-  }, [company.id, period?.id, initialCategory, categories, initialItems, initialHasMore]);
+    // Reset only when company/period changes, not on every RSC prop refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [company.id, period?.id]);
+
+  useEffect(() => {
+    if (pendingScrollY.current == null || items.length === 0) return;
+    const y = pendingScrollY.current;
+    pendingScrollY.current = null;
+    restoreWindowScroll(y);
+    const t1 = window.setTimeout(() => restoreWindowScroll(y), 50);
+    const t2 = window.setTimeout(() => restoreWindowScroll(y), 200);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [items]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !period) return;
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        persistView();
+        ticking = false;
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("pagehide", persistView);
+    return () => {
+      persistView();
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("pagehide", persistView);
+    };
+  }, [period, persistView]);
+
+  useEffect(() => {
+    if (!period || restoredRef.current) return;
+    persistView();
+  }, [items, hasMore, offset, activeCategory, period, persistView]);
 
   const loadMore = useCallback(
     async (reset = false) => {
@@ -287,7 +365,10 @@ export function HomeCatalog({
                   categories={categories}
                   activeCategory={activeCategory}
                   totalItems={totalItems}
-                  onChange={setActiveCategory}
+                  onChange={(category) => {
+                    restoredRef.current = false;
+                    setActiveCategory(category);
+                  }}
                   hideAll
                 />
               </div>
@@ -295,9 +376,14 @@ export function HomeCatalog({
 
             {items.length > 0 ? (
               <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4 lg:gap-6">
-                {items.map(({ item, photos }) => (
+                {items.map(({ item, photos, bidCount }) => (
                   <div key={item.id} className="animate-in">
-                    <LotCard item={item} photos={photos} biddingClosed={!biddingOpen} />
+                    <LotCard
+                      item={item}
+                      photos={photos}
+                      bidCount={bidCount}
+                      biddingClosed={!biddingOpen}
+                    />
                   </div>
                 ))}
               </div>

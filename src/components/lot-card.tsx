@@ -2,21 +2,23 @@ import Link from "next/link";
 import Image from "next/image";
 import { AuctionItem, ItemPhoto } from "@/lib/database.types";
 import { formatRupiah, getPhotoUrl } from "@/lib/format";
-import { Badge } from "@/components/ui/badge";
+import { Gavel } from "lucide-react";
 
 export function LotCard({
   item,
   photos,
+  bidCount = 0,
   biddingClosed,
 }: {
   item: AuctionItem;
   photos?: ItemPhoto[];
+  bidCount?: number;
   biddingClosed?: boolean;
 }) {
   const photo = photos?.[0];
 
   return (
-    <Link href={`/lots/${item.id}`} className="group block">
+    <Link href={`/lots/${item.id}`} className="group block" scroll>
       <article className="overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-sm transition-shadow hover:shadow-md sm:rounded-2xl">
         <div className="relative aspect-square overflow-hidden bg-slate-100 sm:aspect-[4/3]">
           {photo ? (
@@ -33,10 +35,18 @@ export function LotCard({
             </div>
           )}
           <div className="absolute left-2 top-2 flex flex-col gap-1 sm:left-3 sm:top-3">
-            <Badge status={item.status} className="text-[10px] sm:text-xs" />
+            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50/95 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-600/20 backdrop-blur-sm sm:px-2.5 sm:text-xs">
+              <Gavel className="h-3 w-3" />
+              {bidCount} bid
+            </span>
             {biddingClosed && (
               <span className="inline-flex items-center rounded-full bg-slate-800/90 px-2 py-0.5 text-[10px] font-semibold text-white sm:text-xs">
                 Closed
+              </span>
+            )}
+            {item.status === "sold" && !biddingClosed && (
+              <span className="inline-flex items-center rounded-full bg-indigo-600/90 px-2 py-0.5 text-[10px] font-semibold text-white sm:text-xs">
+                Sold
               </span>
             )}
           </div>

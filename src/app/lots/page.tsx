@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { LotCard } from "@/components/lot-card";
+import { LotsGrid } from "@/components/lots-grid";
 import { CompanySwitcher } from "@/components/home/company-switcher";
 import { StripedHeroBackground } from "@/components/striped-hero-background";
 import { AuctionItem, ItemPhoto } from "@/lib/database.types";
@@ -52,17 +52,29 @@ export default async function LotsPage({
     : { data: [] as AuctionItem[] };
 
   const itemIds = (items ?? []).map((item) => item.id);
-  const { data: photos } = itemIds.length
-    ? await supabase
-        .from("item_photos")
-        .select("*")
-        .in("item_id", itemIds)
-        .order("sort_order")
-    : { data: [] as ItemPhoto[] };
+  const [{ data: photos }, { data: bidCountRows }] = itemIds.length
+    ? await Promise.all([
+        supabase
+          .from("item_photos")
+          .select("*")
+          .in("item_id", itemIds)
+          .order("sort_order"),
+        supabase.rpc("get_item_bid_counts", { p_item_ids: itemIds }),
+      ])
+    : [
+        { data: [] as ItemPhoto[] },
+        { data: [] as { item_id: string; bid_count: number }[] },
+      ];
+
+  const bidCounts: Record<string, number> = {};
+  for (const row of bidCountRows ?? []) {
+    bidCounts[row.item_id] = Number(row.bid_count ?? 0);
+  }
 
   const itemsWithPhotos = (items ?? []).map((item: AuctionItem) => ({
     item,
     photos: (photos ?? []).filter((photo) => photo.item_id === item.id),
+    bidCount: bidCounts[item.id] ?? 0,
   }));
 
   return (
@@ -92,11 +104,7 @@ export default async function LotsPage({
               <p className="text-slate-500">Belum ada lot tersedia.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3">
-              {itemsWithPhotos.map(({ item, photos: itemPhotos }) => (
-                <LotCard key={item.id} item={item} photos={itemPhotos} />
-              ))}
-            </div>
+            <LotsGrid companyId={company.id} items={itemsWithPhotos} />
           )}
         </div>
       </main>

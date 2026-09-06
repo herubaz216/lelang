@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Navbar } from "@/components/navbar";
@@ -9,11 +8,11 @@ import { LivePrice } from "@/components/live-price";
 import { PhotoCarousel } from "@/components/photo-carousel";
 import { CountdownTimer } from "@/components/countdown-timer";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { formatRupiah } from "@/lib/format";
 import { isPeriodBiddingOpen, isPeriodClosed } from "@/lib/auction";
-import { ArrowLeft, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { FavoriteButton } from "@/components/favorite-button";
+import { BackButton } from "@/components/back-button";
 
 export default async function LotDetailPage({
   params,
@@ -52,12 +51,7 @@ export default async function LotDetailPage({
       <main className="flex-1">
         <div className="border-b border-[var(--border)] bg-white">
           <div className="container-app py-4">
-            <Link href="/lots">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Kembali
-              </Button>
-            </Link>
+            <BackButton fallbackHref="/" />
           </div>
         </div>
 

@@ -6,7 +6,25 @@ export const PAGE_SIZE = 12;
 export type ItemWithPhotos = {
   item: AuctionItem;
   photos: ItemPhoto[];
+  bidCount: number;
 };
+
+async function fetchBidCounts(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  itemIds: string[]
+): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {};
+  if (itemIds.length === 0) return counts;
+
+  const { data } = await supabase.rpc("get_item_bid_counts", {
+    p_item_ids: itemIds,
+  });
+
+  for (const row of data ?? []) {
+    counts[row.item_id] = Number(row.bid_count ?? 0);
+  }
+  return counts;
+}
 
 export async function fetchItemsPage({
   periodId,
@@ -54,18 +72,24 @@ export async function fetchItemsPage({
   const itemIds = items.map((i) => i.id);
 
   let photos: ItemPhoto[] = [];
+  let bidCounts: Record<string, number> = {};
   if (itemIds.length > 0) {
-    const { data: photoData } = await supabase
-      .from("item_photos")
-      .select("*")
-      .in("item_id", itemIds)
-      .order("sort_order");
+    const [{ data: photoData }, counts] = await Promise.all([
+      supabase
+        .from("item_photos")
+        .select("*")
+        .in("item_id", itemIds)
+        .order("sort_order"),
+      fetchBidCounts(supabase, itemIds),
+    ]);
     photos = photoData ?? [];
+    bidCounts = counts;
   }
 
   const itemsWithPhotos = items.map((item) => ({
     item,
     photos: photos.filter((p) => p.item_id === item.id),
+    bidCount: bidCounts[item.id] ?? 0,
   }));
 
   const total = count ?? 0;
