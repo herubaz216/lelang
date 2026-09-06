@@ -65,7 +65,7 @@ export function CountdownTimer({
     <div className={cn("flex items-center gap-2", className)}>
       <Clock className="h-4 w-4 text-[var(--primary)]" />
       <span className="font-mono text-sm font-semibold tabular-nums text-slate-900">
-        {timeLeft.days > 0 && `${timeLeft.days}h `}
+        {timeLeft.days > 0 && `${timeLeft.days} Hari `}
         {String(timeLeft.hours).padStart(2, "0")}:
         {String(timeLeft.minutes).padStart(2, "0")}:
         {String(timeLeft.seconds).padStart(2, "0")}
