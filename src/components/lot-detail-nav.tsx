@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/back-button";
-import { lotDetailHref, type NextLotItem } from "@/lib/lot-navigation";
+import { lotDetailHref, type NextLotItem } from "@/lib/lot-href";
 import { ChevronRight } from "lucide-react";
 
 export function LotDetailNav({

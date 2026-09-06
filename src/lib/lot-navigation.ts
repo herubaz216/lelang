@@ -1,10 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
+import "server-only";
 
-export type NextLotItem = {
-  id: string;
-  lot_number: string;
-  item_name: string;
-};
+import { createClient } from "@/lib/supabase/server";
+import type { NextLotItem } from "@/lib/lot-href";
+
+export type { NextLotItem };
 
 export async function fetchNextLotItem({
   periodId,
@@ -36,9 +35,4 @@ export async function fetchNextLotItem({
 
   const { data } = await query;
   return data?.[0] ?? null;
-}
-
-export function lotDetailHref(itemId: string, category?: string | null) {
-  if (!category || category === "all") return `/lots/${itemId}`;
-  return `/lots/${itemId}?category=${encodeURIComponent(category)}`;
 }

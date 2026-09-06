@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { AuctionItem, ItemPhoto } from "@/lib/database.types";
 import { formatRupiah, getPhotoUrl } from "@/lib/format";
-import { lotDetailHref } from "@/lib/lot-navigation";
+import { lotDetailHref } from "@/lib/lot-href";
 import { Gavel } from "lucide-react";
 
 export function LotCard({
