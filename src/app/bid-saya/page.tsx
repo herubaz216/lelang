@@ -30,7 +30,7 @@ type ItemInfo = {
 
 type Outcome = "leading" | "outbid" | "won" | "lost";
 
-type StatusFilter = "all" | Outcome;
+type StatusFilter = "all" | "leading" | "outbid" | "won";
 
 type GroupedItemBids = {
   itemId: string;
@@ -46,7 +46,6 @@ const FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: "won", label: "Menang" },
   { value: "leading", label: "Terdepan" },
   { value: "outbid", label: "Terkalahkan" },
-  { value: "lost", label: "Kalah" },
 ];
 
 function isPeriodFinished(status: string) {
@@ -212,9 +211,9 @@ export default function BidSayaPage() {
       won: 0,
       leading: 0,
       outbid: 0,
-      lost: 0,
     };
     for (const row of groupedBids) {
+      if (row.outcome === "lost") continue;
       counts[row.outcome] += 1;
     }
     return counts;
