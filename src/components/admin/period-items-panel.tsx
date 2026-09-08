@@ -26,6 +26,9 @@ import { CategoryFilter } from "@/components/category-filter";
 
 type BidFilterKey = "all" | "no_bids" | "has_bids";
 
+const MAX_PHOTOS = 5;
+const ITEMS_PAGE_SIZE = 20;
+
 const BID_FILTER_OPTIONS: { value: BidFilterKey; label: string }[] = [
   { value: "all", label: "Semua bid" },
   { value: "no_bids", label: "Belum di-bid" },
