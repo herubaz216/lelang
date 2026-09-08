@@ -24,8 +24,13 @@ import { fetchItemCategories } from "@/lib/item-categories";
 import type { ItemCategory } from "@/lib/database.types";
 import { CategoryFilter } from "@/components/category-filter";
 
-const MAX_PHOTOS = 5;
-const ITEMS_PAGE_SIZE = 20;
+type BidFilterKey = "all" | "no_bids" | "has_bids";
+
+const BID_FILTER_OPTIONS: { value: BidFilterKey; label: string }[] = [
+  { value: "all", label: "Semua bid" },
+  { value: "no_bids", label: "Belum di-bid" },
+  { value: "has_bids", label: "Sudah di-bid" },
+];
 
 type ItemSortKey =
   | "lot"
@@ -460,6 +465,7 @@ function ItemForm({
 function ItemRow({
   item,
   thumbnailPath,
+  bidCount = 0,
   onEdit,
   onDuplicate,
   onDelete,
@@ -467,12 +473,13 @@ function ItemRow({
 }: {
   item: AuctionItem;
   thumbnailPath?: string | null;
+  bidCount?: number;
   onEdit: (item: AuctionItem) => void;
   onDuplicate: (item: AuctionItem) => void;
   onDelete: (item: AuctionItem) => void;
   duplicating?: boolean;
 }) {
-  const hasBids = item.current_price > item.starting_price;
+  const hasBids = bidCount > 0;
 
   return (
     <div
@@ -512,6 +519,15 @@ function ItemRow({
           {item.payment_confirmed && (
             <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-600/20">
               Lunas
+            </span>
+          )}
+          {!hasBids ? (
+            <span className="inline-flex items-center rounded-full bg-orange-50 px-2.5 py-0.5 text-xs font-medium text-orange-700 ring-1 ring-orange-600/20">
+              Belum bid
+            </span>
+          ) : (
+            <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-indigo-600/20">
+              {bidCount} bid
             </span>
           )}
         </div>
@@ -584,6 +600,7 @@ export function PeriodItemsPanel({
 }) {
   const [items, setItems] = useState<AuctionItem[]>([]);
   const [itemThumbnails, setItemThumbnails] = useState<Record<string, string>>({});
+  const [bidCountByItem, setBidCountByItem] = useState<Record<string, number>>({});
   const [photos, setPhotos] = useState<ItemPhoto[]>([]);
   const [form, setForm] = useState(emptyItemForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -600,6 +617,7 @@ export function PeriodItemsPanel({
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<ItemSortKey>("lot");
+  const [bidFilter, setBidFilter] = useState<BidFilterKey>("all");
   const supabase = createClient();
 
   const canEditPricingRole = canEditPricing(userRole);
@@ -627,6 +645,24 @@ export function PeriodItemsPanel({
     setItemThumbnails(thumbnails);
   }
 
+  async function loadBidCounts(itemList: AuctionItem[]) {
+    const itemIds = itemList.map((item) => item.id);
+    if (itemIds.length === 0) {
+      setBidCountByItem({});
+      return;
+    }
+
+    const { data } = await supabase.rpc("get_item_bid_counts", {
+      p_item_ids: itemIds,
+    });
+
+    const counts: Record<string, number> = {};
+    for (const row of data ?? []) {
+      counts[row.item_id] = Number(row.bid_count ?? 0);
+    }
+    setBidCountByItem(counts);
+  }
+
   async function loadItems() {
     const { data } = await supabase
       .from("auction_items")
@@ -635,7 +671,10 @@ export function PeriodItemsPanel({
       .order("lot_number");
     const nextItems = data ?? [];
     setItems(nextItems);
-    await loadItemThumbnails(nextItems);
+    await Promise.all([
+      loadItemThumbnails(nextItems),
+      loadBidCounts(nextItems),
+    ]);
   }
 
   async function refreshItemThumbnail(itemId: string) {
@@ -676,6 +715,7 @@ export function PeriodItemsPanel({
     setActiveCategory("all");
     setSearchQuery("");
     setSortKey("lot");
+    setBidFilter("all");
     setPage(1);
   }, [periodId]);
 
@@ -1047,17 +1087,25 @@ export function PeriodItemsPanel({
       .filter((category) => category.count > 0);
   }, [items, categories]);
 
+  const unbidCount = useMemo(
+    () => items.filter((item) => (bidCountByItem[item.id] ?? 0) === 0).length,
+    [items, bidCountByItem]
+  );
+
   const filteredItems = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     const filtered = items.filter((item) => {
       if (activeCategory !== "all" && item.category !== activeCategory) {
         return false;
       }
+      const bids = bidCountByItem[item.id] ?? 0;
+      if (bidFilter === "no_bids" && bids > 0) return false;
+      if (bidFilter === "has_bids" && bids === 0) return false;
       if (!query) return true;
       return item.item_name.toLowerCase().includes(query);
     });
     return sortAuctionItems(filtered, sortKey);
-  }, [items, activeCategory, searchQuery, sortKey]);
+  }, [items, activeCategory, searchQuery, sortKey, bidFilter, bidCountByItem]);
 
   const exportItemCount = useMemo(() => {
     if (activeCategory === "all") return items.length;
@@ -1074,7 +1122,7 @@ export function PeriodItemsPanel({
 
   useEffect(() => {
     setPage(1);
-  }, [activeCategory, searchQuery, sortKey]);
+  }, [activeCategory, searchQuery, sortKey, bidFilter]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -1103,9 +1151,12 @@ export function PeriodItemsPanel({
           <div className="min-w-0">
             <h2 className="font-semibold text-slate-900">Barang Lelang</h2>
             <p className="text-sm text-slate-500">
-              {searchQuery.trim() || activeCategory !== "all"
+              {searchQuery.trim() ||
+              activeCategory !== "all" ||
+              bidFilter !== "all"
                 ? `${filteredItems.length} dari ${items.length} lot`
                 : `${items.length} lot dalam periode ini`}
+              {unbidCount > 0 ? ` · ${unbidCount} belum di-bid` : ""}
             </p>
           </div>
           <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
@@ -1147,6 +1198,19 @@ export function PeriodItemsPanel({
                   </button>
                 )}
               </div>
+              <Select
+                value={bidFilter}
+                onChange={(e) => setBidFilter(e.target.value as BidFilterKey)}
+                className="h-10 w-full sm:w-44"
+                aria-label="Filter status bid"
+              >
+                {BID_FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                    {option.value === "no_bids" ? ` (${unbidCount})` : ""}
+                  </option>
+                ))}
+              </Select>
               <Select
                 value={sortKey}
                 onChange={(e) => setSortKey(e.target.value as ItemSortKey)}
@@ -1191,7 +1255,11 @@ export function PeriodItemsPanel({
             <p className="mt-3 text-sm text-slate-500">
               {searchQuery.trim()
                 ? `Tidak ada barang dengan nama "${searchQuery.trim()}".`
-                : "Tidak ada barang pada kategori ini."}
+                : bidFilter === "no_bids"
+                  ? "Semua barang sudah memiliki bid."
+                  : bidFilter === "has_bids"
+                    ? "Belum ada barang yang di-bid."
+                    : "Tidak ada barang pada kategori ini."}
             </p>
             <Button
               variant="outline"
@@ -1200,6 +1268,7 @@ export function PeriodItemsPanel({
               onClick={() => {
                 setSearchQuery("");
                 setActiveCategory("all");
+                setBidFilter("all");
               }}
             >
               Tampilkan semua
@@ -1213,6 +1282,7 @@ export function PeriodItemsPanel({
                   key={item.id}
                   item={item}
                   thumbnailPath={itemThumbnails[item.id]}
+                  bidCount={bidCountByItem[item.id] ?? 0}
                   onEdit={startEdit}
                   onDuplicate={handleDuplicateItem}
                   onDelete={requestDeleteItem}
