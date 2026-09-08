@@ -22,6 +22,9 @@ const statusLabels: Record<string, string> = {
   ready: "Ready",
   sold: "Sold",
   unsold: "Unsold",
+  valid: "Terdepan",
+  outbid: "Terkalahkan",
+  winner: "Menang",
 };
 
 export function Badge({

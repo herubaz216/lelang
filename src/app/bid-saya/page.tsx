@@ -8,8 +8,8 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Badge } from "@/components/ui/badge";
 import { formatRupiah, formatDateTime } from "@/lib/format";
-import { isPeriodArchived } from "@/lib/auction";
-import { Gavel, Package, ArrowRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Gavel, Package, ArrowRight, Wallet, Trophy } from "lucide-react";
 
 type MyBid = {
   id: string;
@@ -25,7 +25,12 @@ type ItemInfo = {
   item_name: string;
   starting_price: number;
   current_price: number;
+  period_status: string;
 };
+
+type Outcome = "leading" | "outbid" | "won" | "lost";
+
+type StatusFilter = "all" | Outcome;
 
 type GroupedItemBids = {
   itemId: string;
@@ -33,9 +38,74 @@ type GroupedItemBids = {
   bidCount: number;
   lastBidAt: string;
   allBids: MyBid[];
+  outcome: Outcome;
 };
 
-function groupBidsByItem(bids: MyBid[]): GroupedItemBids[] {
+const FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: "all", label: "Semua" },
+  { value: "won", label: "Menang" },
+  { value: "leading", label: "Terdepan" },
+  { value: "outbid", label: "Terkalahkan" },
+  { value: "lost", label: "Kalah" },
+];
+
+function isPeriodFinished(status: string) {
+  return status === "finished" || status === "cancelled";
+}
+
+function resolveOutcome(
+  itemBids: MyBid[],
+  item: ItemInfo | undefined
+): Outcome {
+  if (itemBids.some((bid) => bid.status === "winner")) return "won";
+
+  const highestValid = [...itemBids]
+    .filter((bid) => bid.status !== "cancelled")
+    .sort((a, b) => b.amount - a.amount)[0];
+
+  if (!item || !highestValid) return "outbid";
+
+  const isLeading =
+    highestValid.amount >= item.current_price &&
+    (highestValid.status === "valid" || highestValid.status === "winner");
+
+  if (isPeriodFinished(item.period_status)) {
+    return isLeading ? "won" : "lost";
+  }
+
+  return isLeading ? "leading" : "outbid";
+}
+
+function outcomeBadgeStatus(outcome: Outcome): string {
+  switch (outcome) {
+    case "won":
+      return "winner";
+    case "leading":
+      return "valid";
+    case "lost":
+      return "cancelled";
+    default:
+      return "outbid";
+  }
+}
+
+function outcomeLabel(outcome: Outcome): string {
+  switch (outcome) {
+    case "won":
+      return "Menang";
+    case "leading":
+      return "Terdepan";
+    case "lost":
+      return "Kalah";
+    default:
+      return "Terkalahkan";
+  }
+}
+
+function groupBidsByItem(
+  bids: MyBid[],
+  items: Record<string, ItemInfo>
+): GroupedItemBids[] {
   const map = new Map<string, MyBid[]>();
 
   for (const bid of bids) {
@@ -49,7 +119,8 @@ function groupBidsByItem(bids: MyBid[]): GroupedItemBids[] {
       const allBids = [...itemBids].sort((a, b) => b.amount - a.amount);
       const highestBid = allBids[0];
       const lastBidAt = [...itemBids].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       )[0].created_at;
 
       return {
@@ -58,6 +129,7 @@ function groupBidsByItem(bids: MyBid[]): GroupedItemBids[] {
         bidCount: itemBids.length,
         lastBidAt,
         allBids,
+        outcome: resolveOutcome(itemBids, items[itemId]),
       };
     })
     .sort(
@@ -70,10 +142,46 @@ export default function BidSayaPage() {
   const [bids, setBids] = useState<MyBid[]>([]);
   const [items, setItems] = useState<Record<string, ItemInfo>>({});
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
-  const groupedBids = useMemo(() => groupBidsByItem(bids), [bids]);
+  const groupedBids = useMemo(
+    () => groupBidsByItem(bids, items),
+    [bids, items]
+  );
+
+  const filteredBids = useMemo(() => {
+    if (statusFilter === "all") return groupedBids;
+    return groupedBids.filter((row) => row.outcome === statusFilter);
+  }, [groupedBids, statusFilter]);
+
+  const wonRows = useMemo(
+    () => groupedBids.filter((row) => row.outcome === "won"),
+    [groupedBids]
+  );
+
+  const paymentEstimate = useMemo(() => {
+    return wonRows.reduce((sum, row) => {
+      const item = items[row.itemId];
+      const amount = item?.current_price ?? row.highestBid.amount;
+      return sum + amount;
+    }, 0);
+  }, [wonRows, items]);
+
+  const filterCounts = useMemo(() => {
+    const counts: Record<StatusFilter, number> = {
+      all: groupedBids.length,
+      won: 0,
+      leading: 0,
+      outbid: 0,
+      lost: 0,
+    };
+    for (const row of groupedBids) {
+      counts[row.outcome] += 1;
+    }
+    return counts;
+  }, [groupedBids]);
 
   useEffect(() => {
     async function load() {
@@ -114,10 +222,14 @@ export default function BidSayaPage() {
       const itemIds = [...new Set(allBids.map((bid) => bid.item_id))];
       const { data: itemData } = await supabase
         .from("auction_items")
-        .select("id, lot_number, item_name, starting_price, current_price, period_id")
+        .select(
+          "id, lot_number, item_name, starting_price, current_price, period_id"
+        )
         .in("id", itemIds);
 
-      const periodIds = [...new Set((itemData ?? []).map((item) => item.period_id))];
+      const periodIds = [
+        ...new Set((itemData ?? []).map((item) => item.period_id)),
+      ];
       const { data: periodData } = periodIds.length
         ? await supabase
             .from("auction_periods")
@@ -133,8 +245,13 @@ export default function BidSayaPage() {
       const map: Record<string, ItemInfo> = {};
 
       for (const item of itemData ?? []) {
-        const periodStatus = periodStatusById.get(item.period_id);
-        if (isPeriodArchived(periodStatus ? { status: periodStatus } : null)) {
+        const periodStatus = periodStatusById.get(item.period_id) ?? "";
+        // Tampilkan periode aktif + finished agar barang menang tetap terlihat.
+        if (
+          periodStatus === "cancelled" ||
+          periodStatus === "archived" ||
+          periodStatus === "draft"
+        ) {
           continue;
         }
 
@@ -145,16 +262,16 @@ export default function BidSayaPage() {
           item_name: item.item_name,
           starting_price: item.starting_price,
           current_price: item.current_price,
+          period_status: periodStatus,
         };
       }
 
       setBids(allBids.filter((bid) => visibleItemIds.has(bid.item_id)));
       setItems(map);
-
       setLoading(false);
     }
 
-    load();
+    void load();
   }, [supabase, router]);
 
   return (
@@ -168,7 +285,9 @@ export default function BidSayaPage() {
                 <Gavel className="h-5 w-5 text-[var(--primary)]" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Bid Saya</h1>
+                <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
+                  Bid Saya
+                </h1>
                 <p className="mt-1 text-sm text-slate-500">
                   Ringkasan penawaran Anda per barang lelang
                 </p>
@@ -181,13 +300,18 @@ export default function BidSayaPage() {
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-24 animate-pulse rounded-2xl bg-slate-100" />
+                <div
+                  key={i}
+                  className="h-24 animate-pulse rounded-2xl bg-slate-100"
+                />
               ))}
             </div>
           ) : groupedBids.length === 0 ? (
             <div className="flex flex-col items-center rounded-2xl border border-dashed border-slate-200 py-16 text-center">
               <Package className="h-12 w-12 text-slate-300" />
-              <p className="mt-4 font-medium text-slate-700">Belum ada penawaran</p>
+              <p className="mt-4 font-medium text-slate-700">
+                Belum ada penawaran
+              </p>
               <p className="mt-1 text-sm text-slate-500">
                 Mulai bid pada barang lelang yang aktif
               </p>
@@ -200,123 +324,230 @@ export default function BidSayaPage() {
               </Link>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-sm">
-              <div className="hidden grid-cols-[1fr_110px_110px_110px_90px] gap-4 border-b border-[var(--border)] bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 lg:grid">
-                <span>Barang</span>
-                <span className="text-right">Harga Awal</span>
-                <span className="text-right">Bid Tertinggi</span>
-                <span className="text-right">Harga Terkini</span>
-                <span>Status</span>
+            <div className="space-y-4">
+              <div className="flex flex-col gap-3">
+                <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {FILTER_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setStatusFilter(option.value)}
+                      className={cn(
+                        "shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                        statusFilter === option.value
+                          ? "bg-[var(--primary)] text-white shadow-sm"
+                          : "bg-white text-slate-600 ring-1 ring-[var(--border)] hover:bg-slate-50"
+                      )}
+                    >
+                      {option.label} ({filterCounts[option.value]})
+                    </button>
+                  ))}
+                </div>
               </div>
-              <ul className="divide-y divide-[var(--border)]">
-                {groupedBids.map(({ itemId, highestBid, bidCount, lastBidAt, allBids }) => {
-                  const item = items[itemId];
-                  const isLeading =
-                    item &&
-                    highestBid.amount >= item.current_price &&
-                    highestBid.status === "valid";
 
-                  return (
-                    <li key={itemId}>
-                      <Link
-                        href={`/lots/${itemId}`}
-                        className="block transition-colors hover:bg-slate-50/80"
-                      >
-                        <div className="hidden items-center gap-4 px-5 py-4 lg:grid lg:grid-cols-[1fr_110px_110px_110px_90px]">
-                          <div className="min-w-0">
-                            {item ? (
-                              <>
-                                <span className="font-mono text-xs font-semibold text-[var(--primary)]">
-                                  {item.lot_number}
-                                </span>
-                                <p className="truncate font-medium text-slate-900">
-                                  {item.item_name}
-                                </p>
-                                <p className="text-xs text-slate-500">
-                                  {bidCount} penawaran &bull; terakhir{" "}
-                                  {formatDateTime(lastBidAt)}
-                                </p>
-                              </>
-                            ) : (
-                              <p className="text-sm text-slate-500">Barang tidak tersedia</p>
-                            )}
-                          </div>
-                          <p className="text-right text-sm text-slate-600">
-                            {item ? formatRupiah(item.starting_price) : "—"}
-                          </p>
-                          <p className="text-right font-semibold text-slate-900">
-                            {formatRupiah(highestBid.amount)}
-                          </p>
-                          <p className="text-right text-sm text-slate-600">
-                            {item ? formatRupiah(item.current_price) : "—"}
-                          </p>
-                          <Badge status={isLeading ? "winner" : highestBid.status} />
-                        </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
+                  <div className="flex items-center gap-2 text-amber-800">
+                    <Trophy className="h-4 w-4" />
+                    <p className="text-sm font-medium">Barang dimenangkan</p>
+                  </div>
+                  <p className="mt-2 text-2xl font-bold text-amber-950">
+                    {wonRows.length}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-indigo-200 bg-indigo-50/80 p-4">
+                  <div className="flex items-center gap-2 text-indigo-800">
+                    <Wallet className="h-4 w-4" />
+                    <p className="text-sm font-medium">
+                      Estimasi pembayaran
+                    </p>
+                  </div>
+                  <p className="mt-2 text-2xl font-bold text-indigo-950">
+                    {formatRupiah(paymentEstimate)}
+                  </p>
+                  <p className="mt-1 text-xs text-indigo-700/80">
+                    Total harga menang dari {wonRows.length} barang
+                  </p>
+                </div>
+              </div>
 
-                        <div className="p-4 lg:hidden">
-                          {item ? (
-                            <>
-                              <div className="flex items-start justify-between gap-2">
+              {filteredBids.length === 0 ? (
+                <div className="flex flex-col items-center rounded-2xl border border-dashed border-slate-200 py-14 text-center">
+                  <Package className="h-10 w-10 text-slate-300" />
+                  <p className="mt-3 font-medium text-slate-700">
+                    Tidak ada barang pada filter ini
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter("all")}
+                    className="mt-4 text-sm font-medium text-[var(--primary)] hover:underline"
+                  >
+                    Lihat semua bid
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-sm">
+                  <div className="hidden grid-cols-[1fr_110px_110px_110px_100px] gap-4 border-b border-[var(--border)] bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 lg:grid">
+                    <span>Barang</span>
+                    <span className="text-right">Harga Awal</span>
+                    <span className="text-right">Bid Tertinggi</span>
+                    <span className="text-right">Harga Terkini</span>
+                    <span>Status</span>
+                  </div>
+                  <ul className="divide-y divide-[var(--border)]">
+                    {filteredBids.map(
+                      ({
+                        itemId,
+                        highestBid,
+                        bidCount,
+                        lastBidAt,
+                        allBids,
+                        outcome,
+                      }) => {
+                        const item = items[itemId];
+
+                        return (
+                          <li key={itemId}>
+                            <Link
+                              href={`/lots/${itemId}`}
+                              className="block transition-colors hover:bg-slate-50/80"
+                            >
+                              <div className="hidden items-center gap-4 px-5 py-4 lg:grid lg:grid-cols-[1fr_110px_110px_110px_100px]">
                                 <div className="min-w-0">
-                                  <span className="font-mono text-xs font-semibold text-[var(--primary)]">
-                                    {item.lot_number}
+                                  {item ? (
+                                    <>
+                                      <span className="font-mono text-xs font-semibold text-[var(--primary)]">
+                                        {item.lot_number}
+                                      </span>
+                                      <p className="truncate font-medium text-slate-900">
+                                        {item.item_name}
+                                      </p>
+                                      <p className="text-xs text-slate-500">
+                                        {bidCount} penawaran &bull; terakhir{" "}
+                                        {formatDateTime(lastBidAt)}
+                                      </p>
+                                    </>
+                                  ) : (
+                                    <p className="text-sm text-slate-500">
+                                      Barang tidak tersedia
+                                    </p>
+                                  )}
+                                </div>
+                                <p className="text-right text-sm text-slate-600">
+                                  {item
+                                    ? formatRupiah(item.starting_price)
+                                    : "—"}
+                                </p>
+                                <p className="text-right font-semibold text-slate-900">
+                                  {formatRupiah(highestBid.amount)}
+                                </p>
+                                <p className="text-right text-sm text-slate-600">
+                                  {item
+                                    ? formatRupiah(item.current_price)
+                                    : "—"}
+                                </p>
+                                <div className="flex flex-col items-start gap-1">
+                                  <Badge status={outcomeBadgeStatus(outcome)} />
+                                  <span className="text-[11px] font-medium text-slate-500">
+                                    {outcomeLabel(outcome)}
                                   </span>
-                                  <p className="font-medium text-slate-900">{item.item_name}</p>
-                                  <p className="mt-1 text-xs text-slate-500">
-                                    {bidCount} penawaran &bull; terakhir{" "}
-                                    {formatDateTime(lastBidAt)}
-                                  </p>
-                                </div>
-                                <Badge status={isLeading ? "winner" : highestBid.status} />
-                              </div>
-                              <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
-                                <div>
-                                  <p className="text-xs text-slate-500">Harga Awal</p>
-                                  <p className="font-medium text-slate-700">
-                                    {formatRupiah(item.starting_price)}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-xs text-slate-500">Bid Tertinggi</p>
-                                  <p className="font-semibold text-slate-900">
-                                    {formatRupiah(highestBid.amount)}
-                                  </p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-xs text-slate-500">Harga Terkini</p>
-                                  <p className="font-medium text-slate-700">
-                                    {formatRupiah(item.current_price)}
-                                  </p>
                                 </div>
                               </div>
-                              {bidCount > 1 && (
-                                <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2">
-                                  <p className="text-xs font-medium text-slate-500">
-                                    Riwayat bid
+
+                              <div className="p-4 lg:hidden">
+                                {item ? (
+                                  <>
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <span className="font-mono text-xs font-semibold text-[var(--primary)]">
+                                          {item.lot_number}
+                                        </span>
+                                        <p className="font-medium text-slate-900">
+                                          {item.item_name}
+                                        </p>
+                                        <p className="mt-1 text-xs text-slate-500">
+                                          {bidCount} penawaran &bull; terakhir{" "}
+                                          {formatDateTime(lastBidAt)}
+                                        </p>
+                                      </div>
+                                      <div className="text-right">
+                                        <Badge
+                                          status={outcomeBadgeStatus(outcome)}
+                                        />
+                                        <p className="mt-1 text-[11px] font-medium text-slate-500">
+                                          {outcomeLabel(outcome)}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
+                                      <div>
+                                        <p className="text-xs text-slate-500">
+                                          Harga Awal
+                                        </p>
+                                        <p className="font-medium text-slate-700">
+                                          {formatRupiah(item.starting_price)}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-slate-500">
+                                          Bid Tertinggi
+                                        </p>
+                                        <p className="font-semibold text-slate-900">
+                                          {formatRupiah(highestBid.amount)}
+                                        </p>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-xs text-slate-500">
+                                          Harga Terkini
+                                        </p>
+                                        <p className="font-medium text-slate-700">
+                                          {formatRupiah(item.current_price)}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    {outcome === "won" && (
+                                      <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                                        Estimasi bayar:{" "}
+                                        {formatRupiah(item.current_price)}
+                                      </p>
+                                    )}
+                                    {bidCount > 1 && (
+                                      <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2">
+                                        <p className="text-xs font-medium text-slate-500">
+                                          Riwayat bid
+                                        </p>
+                                        <ul className="mt-1 space-y-0.5">
+                                          {allBids.map((bid) => (
+                                            <li
+                                              key={bid.id}
+                                              className="flex justify-between text-xs text-slate-600"
+                                            >
+                                              <span>
+                                                {formatDateTime(bid.created_at)}
+                                              </span>
+                                              <span>
+                                                {formatRupiah(bid.amount)}
+                                              </span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <p className="text-sm text-slate-500">
+                                    Barang tidak tersedia
                                   </p>
-                                  <ul className="mt-1 space-y-0.5">
-                                    {allBids.map((bid) => (
-                                      <li
-                                        key={bid.id}
-                                        className="flex justify-between text-xs text-slate-600"
-                                      >
-                                        <span>{formatDateTime(bid.created_at)}</span>
-                                        <span>{formatRupiah(bid.amount)}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <p className="text-sm text-slate-500">Barang tidak tersedia</p>
-                          )}
-                        </div>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+                                )}
+                              </div>
+                            </Link>
+                          </li>
+                        );
+                      }
+                    )}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </div>
