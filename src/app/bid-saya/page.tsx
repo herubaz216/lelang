@@ -161,13 +161,50 @@ export default function BidSayaPage() {
     [groupedBids]
   );
 
+  const leadingRows = useMemo(
+    () => groupedBids.filter((row) => row.outcome === "leading"),
+    [groupedBids]
+  );
+
+  const estimateRows = useMemo(() => {
+    if (statusFilter === "leading") return leadingRows;
+    if (statusFilter === "won") return wonRows;
+    // Default (Semua / lainnya): total potensi = menang + terdepan
+    if (statusFilter === "all") return [...wonRows, ...leadingRows];
+    return [];
+  }, [statusFilter, leadingRows, wonRows]);
+
   const paymentEstimate = useMemo(() => {
-    return wonRows.reduce((sum, row) => {
+    return estimateRows.reduce((sum, row) => {
       const item = items[row.itemId];
       const amount = item?.current_price ?? row.highestBid.amount;
       return sum + amount;
     }, 0);
-  }, [wonRows, items]);
+  }, [estimateRows, items]);
+
+  const estimateTitle =
+    statusFilter === "leading"
+      ? "Estimasi jika menang"
+      : statusFilter === "won"
+        ? "Estimasi pembayaran"
+        : "Estimasi total";
+
+  const estimateHint =
+    statusFilter === "leading"
+      ? `Total harga terkini dari ${leadingRows.length} barang terdepan`
+      : statusFilter === "won"
+        ? `Total harga menang dari ${wonRows.length} barang`
+        : `Menang + terdepan (${estimateRows.length} barang)`;
+
+  const summaryCount =
+    statusFilter === "leading"
+      ? leadingRows.length
+      : statusFilter === "won"
+        ? wonRows.length
+        : wonRows.length;
+
+  const summaryCountLabel =
+    statusFilter === "leading" ? "Barang terdepan" : "Barang dimenangkan";
 
   const filterCounts = useMemo(() => {
     const counts: Record<StatusFilter, number> = {
@@ -349,25 +386,21 @@ export default function BidSayaPage() {
                 <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
                   <div className="flex items-center gap-2 text-amber-800">
                     <Trophy className="h-4 w-4" />
-                    <p className="text-sm font-medium">Barang dimenangkan</p>
+                    <p className="text-sm font-medium">{summaryCountLabel}</p>
                   </div>
                   <p className="mt-2 text-2xl font-bold text-amber-950">
-                    {wonRows.length}
+                    {summaryCount}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-indigo-200 bg-indigo-50/80 p-4">
                   <div className="flex items-center gap-2 text-indigo-800">
                     <Wallet className="h-4 w-4" />
-                    <p className="text-sm font-medium">
-                      Estimasi pembayaran
-                    </p>
+                    <p className="text-sm font-medium">{estimateTitle}</p>
                   </div>
                   <p className="mt-2 text-2xl font-bold text-indigo-950">
                     {formatRupiah(paymentEstimate)}
                   </p>
-                  <p className="mt-1 text-xs text-indigo-700/80">
-                    Total harga menang dari {wonRows.length} barang
-                  </p>
+                  <p className="mt-1 text-xs text-indigo-700/80">{estimateHint}</p>
                 </div>
               </div>
 
