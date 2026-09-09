@@ -15,6 +15,11 @@ import { Plus, Pencil, Calendar, ArrowLeft, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useAdminCompanyId } from "@/components/admin/admin-company-context";
 import { cn } from "@/lib/utils";
+import {
+  carryUnbidItemsToPeriod,
+  fetchUnbidItemsForPeriod,
+  findCarrySourcePeriod,
+} from "@/lib/item-carry";
 
 const emptyPeriodForm = {
   code: "",
@@ -34,12 +39,22 @@ function PeriodFormFields({
   loading,
   onSubmit,
   onCancel,
+  isCreate,
+  carryUnbid,
+  setCarryUnbid,
+  carrySourceLabel,
+  carryUnbidCount,
 }: {
   form: typeof emptyPeriodForm;
   setForm: React.Dispatch<React.SetStateAction<typeof emptyPeriodForm>>;
   loading: boolean;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
+  isCreate?: boolean;
+  carryUnbid?: boolean;
+  setCarryUnbid?: (value: boolean) => void;
+  carrySourceLabel?: string | null;
+  carryUnbidCount?: number;
 }) {
   return (
     <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2">
@@ -97,6 +112,27 @@ function PeriodFormFields({
           required
         />
       </div>
+      {isCreate && carrySourceLabel && (carryUnbidCount ?? 0) > 0 && (
+        <div className="sm:col-span-2 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 rounded border-slate-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+              checked={Boolean(carryUnbid)}
+              onChange={(e) => setCarryUnbid?.(e.target.checked)}
+            />
+            <span>
+              <span className="block text-sm font-semibold text-amber-950">
+                Bawa barang belum di-bid dari periode {carrySourceLabel}
+              </span>
+              <span className="mt-1 block text-xs text-amber-800/90">
+                {carryUnbidCount} barang tanpa bid akan dibuat ulang di periode
+                baru (status draft, foto ikut disalin).
+              </span>
+            </span>
+          </label>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2 sm:col-span-2">
         <Button type="submit" variant="primary" disabled={loading}>
           {loading ? "Menyimpan..." : "Simpan"}
@@ -120,6 +156,9 @@ export default function PeriodsMasterDetailPage() {
   const [loading, setLoading] = useState(false);
   const [deletingPeriod, setDeletingPeriod] = useState(false);
   const [deletePeriodTarget, setDeletePeriodTarget] = useState<AuctionPeriod | null>(null);
+  const [carryUnbid, setCarryUnbid] = useState(false);
+  const [carrySource, setCarrySource] = useState<{ id: string; code: string } | null>(null);
+  const [carryUnbidCount, setCarryUnbidCount] = useState(0);
   const supabase = createClient();
   const companyId = useAdminCompanyId();
 
@@ -187,16 +226,34 @@ export default function PeriodsMasterDetailPage() {
     setMobileView("detail");
   }
 
+  async function loadCarryOptions() {
+    const source = await findCarrySourcePeriod(supabase, companyId);
+    if (!source) {
+      setCarrySource(null);
+      setCarryUnbidCount(0);
+      setCarryUnbid(false);
+      return;
+    }
+    const unbidItems = await fetchUnbidItemsForPeriod(supabase, source.id);
+    setCarrySource(source);
+    setCarryUnbidCount(unbidItems.length);
+    setCarryUnbid(unbidItems.length > 0);
+  }
+
   function startAddPeriod() {
     setEditingId(null);
     setForm(emptyPeriodForm);
     setRightPanel("period-form");
     setMobileView("detail");
+    void loadCarryOptions();
   }
 
   function cancelPeriodForm() {
     setEditingId(null);
     setForm(emptyPeriodForm);
+    setCarryUnbid(false);
+    setCarrySource(null);
+    setCarryUnbidCount(0);
     setRightPanel("items");
     setMobileView("list");
   }
@@ -253,12 +310,40 @@ export default function PeriodsMasterDetailPage() {
     }
 
     toast.success(editingId ? "Periode diperbarui" : "Periode dibuat");
+
+    const isCreate = !editingId;
+    const carrySourceId = carrySource?.id ?? null;
+    const shouldCarry = Boolean(isCreate && carryUnbid && carrySourceId && data);
+
     setEditingId(null);
     setForm(emptyPeriodForm);
+    setCarryUnbid(false);
+    setCarrySource(null);
+    setCarryUnbidCount(0);
     setRightPanel("items");
     setMobileView("detail");
     await loadPeriods();
     if (data) setSelectedId(data.id);
+
+    if (shouldCarry && data && carrySourceId) {
+      try {
+        const result = await carryUnbidItemsToPeriod(supabase, {
+          companyId,
+          targetPeriodId: data.id,
+          sourcePeriodId: carrySourceId,
+        });
+        if (result && result.carried > 0) {
+          toast.success(
+            `${result.carried} barang belum di-bid dari ${result.sourcePeriodCode} dibawa ke periode baru`
+          );
+          await loadPeriods();
+        } else if (result && result.failed > 0) {
+          toast.error(`Gagal membawa ${result.failed} barang ke periode baru`);
+        }
+      } catch {
+        toast.error("Periode dibuat, tetapi gagal membawa barang belum di-bid");
+      }
+    }
 
     if (becameFinished && data) {
       try {
@@ -354,6 +439,11 @@ export default function PeriodsMasterDetailPage() {
             loading={loading}
             onSubmit={handlePeriodSubmit}
             onCancel={cancelPeriodForm}
+            isCreate={!editingId}
+            carryUnbid={carryUnbid}
+            setCarryUnbid={setCarryUnbid}
+            carrySourceLabel={carrySource?.code ?? null}
+            carryUnbidCount={carryUnbidCount}
           />
         </CardContent>
       </Card>

@@ -25,6 +25,8 @@ type ItemInfo = {
   item_name: string;
   starting_price: number;
   current_price: number;
+  period_id: string;
+  period_code: string;
   period_status: string;
 };
 
@@ -142,27 +144,47 @@ export default function BidSayaPage() {
   const [items, setItems] = useState<Record<string, ItemInfo>>({});
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [periodFilter, setPeriodFilter] = useState<string>("all");
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+
+  const periodOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of Object.values(items)) {
+      if (!map.has(item.period_id)) {
+        map.set(item.period_id, item.period_code);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([id, code]) => ({ id, code }))
+      .sort((a, b) => a.code.localeCompare(b.code));
+  }, [items]);
 
   const groupedBids = useMemo(
     () => groupBidsByItem(bids, items),
     [bids, items]
   );
 
+  const periodScopedBids = useMemo(() => {
+    if (periodFilter === "all") return groupedBids;
+    return groupedBids.filter(
+      (row) => items[row.itemId]?.period_id === periodFilter
+    );
+  }, [groupedBids, items, periodFilter]);
+
   const filteredBids = useMemo(() => {
-    if (statusFilter === "all") return groupedBids;
-    return groupedBids.filter((row) => row.outcome === statusFilter);
-  }, [groupedBids, statusFilter]);
+    if (statusFilter === "all") return periodScopedBids;
+    return periodScopedBids.filter((row) => row.outcome === statusFilter);
+  }, [periodScopedBids, statusFilter]);
 
   const wonRows = useMemo(
-    () => groupedBids.filter((row) => row.outcome === "won"),
-    [groupedBids]
+    () => periodScopedBids.filter((row) => row.outcome === "won"),
+    [periodScopedBids]
   );
 
   const leadingRows = useMemo(
-    () => groupedBids.filter((row) => row.outcome === "leading"),
-    [groupedBids]
+    () => periodScopedBids.filter((row) => row.outcome === "leading"),
+    [periodScopedBids]
   );
 
   const estimateRows = useMemo(() => {
@@ -207,17 +229,17 @@ export default function BidSayaPage() {
 
   const filterCounts = useMemo(() => {
     const counts: Record<StatusFilter, number> = {
-      all: groupedBids.length,
+      all: periodScopedBids.length,
       won: 0,
       leading: 0,
       outbid: 0,
     };
-    for (const row of groupedBids) {
+    for (const row of periodScopedBids) {
       if (row.outcome === "lost") continue;
       counts[row.outcome] += 1;
     }
     return counts;
-  }, [groupedBids]);
+  }, [periodScopedBids]);
 
   useEffect(() => {
     async function load() {
@@ -269,19 +291,20 @@ export default function BidSayaPage() {
       const { data: periodData } = periodIds.length
         ? await supabase
             .from("auction_periods")
-            .select("id, status")
+            .select("id, status, code")
             .in("id", periodIds)
-        : { data: [] as { id: string; status: string }[] };
+        : { data: [] as { id: string; status: string; code: string }[] };
 
-      const periodStatusById = new Map(
-        (periodData ?? []).map((period) => [period.id, period.status])
+      const periodById = new Map(
+        (periodData ?? []).map((period) => [period.id, period])
       );
 
       const visibleItemIds = new Set<string>();
       const map: Record<string, ItemInfo> = {};
 
       for (const item of itemData ?? []) {
-        const periodStatus = periodStatusById.get(item.period_id) ?? "";
+        const period = periodById.get(item.period_id);
+        const periodStatus = period?.status ?? "";
         // Tampilkan periode aktif + finished agar barang menang tetap terlihat.
         if (
           periodStatus === "cancelled" ||
@@ -298,6 +321,8 @@ export default function BidSayaPage() {
           item_name: item.item_name,
           starting_price: item.starting_price,
           current_price: item.current_price,
+          period_id: item.period_id,
+          period_code: period?.code ?? "—",
           period_status: periodStatus,
         };
       }
@@ -361,6 +386,38 @@ export default function BidSayaPage() {
             </div>
           ) : (
             <div className="space-y-4">
+              {periodOptions.length > 1 && (
+                <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setPeriodFilter("all")}
+                    className={cn(
+                      "shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                      periodFilter === "all"
+                        ? "bg-slate-900 text-white shadow-sm"
+                        : "bg-white text-slate-600 ring-1 ring-[var(--border)] hover:bg-slate-50"
+                    )}
+                  >
+                    Semua periode
+                  </button>
+                  {periodOptions.map((period) => (
+                    <button
+                      key={period.id}
+                      type="button"
+                      onClick={() => setPeriodFilter(period.id)}
+                      className={cn(
+                        "shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                        periodFilter === period.id
+                          ? "bg-slate-900 text-white shadow-sm"
+                          : "bg-white text-slate-600 ring-1 ring-[var(--border)] hover:bg-slate-50"
+                      )}
+                    >
+                      {period.code}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div className="flex flex-col gap-3">
                 <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {FILTER_OPTIONS.map((option) => (
@@ -455,7 +512,8 @@ export default function BidSayaPage() {
                                         {item.item_name}
                                       </p>
                                       <p className="text-xs text-slate-500">
-                                        {bidCount} penawaran &bull; terakhir{" "}
+                                        {item.period_code} &bull; {bidCount}{" "}
+                                        penawaran &bull; terakhir{" "}
                                         {formatDateTime(lastBidAt)}
                                       </p>
                                     </>
@@ -498,7 +556,8 @@ export default function BidSayaPage() {
                                           {item.item_name}
                                         </p>
                                         <p className="mt-1 text-xs text-slate-500">
-                                          {bidCount} penawaran &bull; terakhir{" "}
+                                          {item.period_code} &bull; {bidCount}{" "}
+                                          penawaran &bull; terakhir{" "}
                                           {formatDateTime(lastBidAt)}
                                         </p>
                                       </div>
