@@ -14,13 +14,20 @@ export function CompanySwitcher({
   activeCompany: Company;
   basePath?: string;
 }) {
+  if (companies.length <= 1) return null;
+
   return (
     <section className="border-b border-[var(--border)] bg-slate-50">
       <div className="container-app py-4">
         <p className="mb-3 text-center text-sm font-medium text-slate-600">
           Pilih perusahaan untuk melihat lelang
         </p>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div
+          className={cn(
+            "grid gap-3",
+            companies.length >= 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"
+          )}
+        >
           {companies.map((company) => {
             const isActive = company.id === activeCompany.id;
             return (
@@ -55,7 +62,9 @@ export function CompanySwitcher({
                       {company.short_name}
                     </span>
                     {isActive && (
-                      <span className="text-xs font-medium text-emerald-600">Dipilih</span>
+                      <span className="text-xs font-medium text-emerald-600">
+                        Dipilih
+                      </span>
                     )}
                   </div>
                   <p className="mt-1 text-sm font-semibold text-slate-900 sm:text-base">

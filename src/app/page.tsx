@@ -6,7 +6,7 @@ import { CompanySwitcher } from "@/components/home/company-switcher";
 import { fetchCategories, fetchItemsPage } from "@/lib/items";
 import { fetchDisplayPeriod } from "@/lib/auction-server";
 import {
-  fetchCompanies,
+  fetchCompaniesWithAuction,
   fetchCompanyByCode,
   resolveCompanyCode,
 } from "@/lib/companies";
@@ -17,7 +17,7 @@ export default async function HomePage({
   searchParams: Promise<{ company?: string; focus?: string }>;
 }) {
   const { company: companyParam, focus: focusParam } = await searchParams;
-  const companies = await fetchCompanies();
+  const companies = await fetchCompaniesWithAuction();
   const companyCode = resolveCompanyCode(companyParam, companies);
   const company =
     (await fetchCompanyByCode(companyCode)) ?? companies[0] ?? null;

@@ -6,7 +6,7 @@ import { CompanySwitcher } from "@/components/home/company-switcher";
 import { StripedHeroBackground } from "@/components/striped-hero-background";
 import { AuctionItem, ItemPhoto } from "@/lib/database.types";
 import {
-  fetchCompanies,
+  fetchCompaniesWithAuction,
   fetchCompanyByCode,
   resolveCompanyCode,
 } from "@/lib/companies";
@@ -17,7 +17,7 @@ export default async function LotsPage({
   searchParams: Promise<{ company?: string }>;
 }) {
   const { company: companyParam } = await searchParams;
-  const companies = await fetchCompanies();
+  const companies = await fetchCompaniesWithAuction();
   const companyCode = resolveCompanyCode(companyParam, companies);
   const company =
     (await fetchCompanyByCode(companyCode)) ?? companies[0] ?? null;

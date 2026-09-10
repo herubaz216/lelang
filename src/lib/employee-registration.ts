@@ -21,9 +21,10 @@ export function getNikLookupVariants(nik: string): string[] {
 
 /** Map HR PT name → company code heuristics. */
 const PT_CODE_HINTS: Array<{ code: string; needles: string[] }> = [
-  { code: "ams", needles: ["sejahtera", "ams"] },
-  { code: "amg", needles: ["garmindo", "amg"] },
-  { code: "amv", needles: ["visual", "amv"] },
+  { code: "ams", needles: ["sejahtera"] },
+  { code: "amg", needles: ["garmindo"] },
+  { code: "amv", needles: ["visual"] },
+  { code: "aml", needles: ["logistic", "logistik"] },
 ];
 
 export function inferCompanyCodeFromPt(ptName: string): string | null {
@@ -35,6 +36,13 @@ export function inferCompanyCodeFromPt(ptName: string): string | null {
       return hint.code;
     }
   }
+
+  // Exact short-code token match only (avoid substring false positives).
+  const tokens = normalized.split(/[^a-z0-9]+/).filter(Boolean);
+  for (const hint of PT_CODE_HINTS) {
+    if (tokens.includes(hint.code)) return hint.code;
+  }
+
   return null;
 }
 
@@ -59,13 +67,16 @@ export async function resolveCompanyFromPt(
     list.find((company) => company.code.toLowerCase() === normalized);
   if (exact) return exact;
 
-  const byInclude = list.find(
-    (company) =>
-      normalized.includes(company.short_name.toLowerCase()) ||
-      normalized.includes(company.name.toLowerCase().replace(/^pt\.?\s*/i, "")) ||
-      company.name.toLowerCase().includes(normalized)
-  );
-  if (byInclude) return byInclude;
+  const withoutPrefix = normalized.replace(/^pt\.?\s*/i, "").trim();
+  const byFullName = list.find((company) => {
+    const companyName = company.name.toLowerCase().replace(/^pt\.?\s*/i, "").trim();
+    return (
+      withoutPrefix === companyName ||
+      withoutPrefix.includes(companyName) ||
+      companyName.includes(withoutPrefix)
+    );
+  });
+  if (byFullName) return byFullName;
 
   const code = inferCompanyCodeFromPt(ptName);
   if (code) {
@@ -107,24 +118,43 @@ export async function isEmployeeNikRegistered(
   return (profileCount ?? 0) > 0 || (bidderCount ?? 0) > 0;
 }
 
-export async function filterUnregisteredEmployeeMatches<
+export type EmployeeMatchAnalysis<T extends { nomorInduk: string; pt: string }> = {
+  available: Array<T & { companyId: string; companyCode: string }>;
+  registered: Array<T & { companyId: string; companyCode: string }>;
+  unmapped: T[];
+};
+
+export async function analyzeEmployeeMatches<
   T extends { nomorInduk: string; pt: string },
->(matches: T[]): Promise<Array<T & { companyId: string; companyCode: string }>> {
+>(matches: T[]): Promise<EmployeeMatchAnalysis<T>> {
   const available: Array<T & { companyId: string; companyCode: string }> = [];
+  const registered: Array<T & { companyId: string; companyCode: string }> = [];
+  const unmapped: T[] = [];
 
   for (const match of matches) {
     const company = await resolveCompanyFromPt(match.pt);
-    if (!company) continue;
+    if (!company) {
+      unmapped.push(match);
+      continue;
+    }
 
     const taken = await isEmployeeNikRegistered(match.nomorInduk, company.id);
-    if (taken) continue;
-
-    available.push({
+    const enriched = {
       ...match,
       companyId: company.id,
       companyCode: company.code,
-    });
+    };
+
+    if (taken) registered.push(enriched);
+    else available.push(enriched);
   }
 
+  return { available, registered, unmapped };
+}
+
+export async function filterUnregisteredEmployeeMatches<
+  T extends { nomorInduk: string; pt: string },
+>(matches: T[]): Promise<Array<T & { companyId: string; companyCode: string }>> {
+  const { available } = await analyzeEmployeeMatches(matches);
   return available;
 }
