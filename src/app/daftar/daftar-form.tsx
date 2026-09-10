@@ -8,15 +8,34 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, Loader2, Mail, ShieldCheck, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  Building2,
+  CheckCircle2,
+  Loader2,
+  Mail,
+  ShieldCheck,
+  XCircle,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Step = "form" | "otp";
 type NikStatus = "idle" | "loading" | "verified" | "error" | "taken";
+
+type EmployeeMatchOption = {
+  nomorInduk: string;
+  fullName: string;
+  pt: string;
+};
 
 export default function DaftarForm() {
   const [step, setStep] = useState<Step>("form");
   const [employeeNik, setEmployeeNik] = useState("");
   const [fullName, setFullName] = useState("");
+  const [selectedPt, setSelectedPt] = useState("");
+  const [ptOptions, setPtOptions] = useState<EmployeeMatchOption[]>([]);
+  const [showPtDialog, setShowPtDialog] = useState(false);
+  const [pendingPtSelection, setPendingPtSelection] = useState<string>("");
   const [nikStatus, setNikStatus] = useState<NikStatus>("idle");
   const [nikMessage, setNikMessage] = useState("");
   const [email, setEmail] = useState("");
@@ -28,10 +47,27 @@ export default function DaftarForm() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") ?? "/";
 
+  function resetEmployeeFields() {
+    setFullName("");
+    setSelectedPt("");
+    setPtOptions([]);
+    setShowPtDialog(false);
+    setPendingPtSelection("");
+  }
+
+  function applyEmployeeMatch(match: EmployeeMatchOption) {
+    setFullName(match.fullName);
+    setSelectedPt(match.pt);
+    setNikStatus("verified");
+    setNikMessage("");
+    setShowPtDialog(false);
+    setPendingPtSelection("");
+  }
+
   useEffect(() => {
     const nik = employeeNik.trim();
     if (!nik) {
-      setFullName("");
+      resetEmployeeFields();
       setNikStatus("idle");
       setNikMessage("");
       return;
@@ -40,7 +76,7 @@ export default function DaftarForm() {
     const requestId = ++lookupRequestId.current;
     const timer = window.setTimeout(async () => {
       setNikStatus("loading");
-      setFullName("");
+      resetEmployeeFields();
       setNikMessage("");
 
       try {
@@ -66,9 +102,23 @@ export default function DaftarForm() {
           return;
         }
 
-        setFullName(data.fullName ?? "");
-        setNikStatus("verified");
-        setNikMessage("");
+        const matches = (data.matches ?? []) as EmployeeMatchOption[];
+        if (matches.length > 1) {
+          setPtOptions(matches);
+          setPendingPtSelection(matches[0]?.pt ?? "");
+          setShowPtDialog(true);
+          setNikStatus("idle");
+          setNikMessage("Pilih perusahaan (PT) untuk NIK ini");
+          return;
+        }
+
+        const single = matches[0] ?? {
+          nomorInduk: data.nomorInduk as string,
+          fullName: (data.fullName as string) ?? "",
+          pt: (data.pt as string) ?? "",
+        };
+        setPtOptions(matches.length ? matches : [single]);
+        applyEmployeeMatch(single);
       } catch {
         if (requestId !== lookupRequestId.current) return;
         setNikStatus("error");
@@ -85,8 +135,30 @@ export default function DaftarForm() {
     if (nikStatus !== "idle") {
       setNikStatus("idle");
       setNikMessage("");
-      setFullName("");
+      resetEmployeeFields();
     }
+  }
+
+  function handleConfirmPt() {
+    const match =
+      ptOptions.find((option) => option.pt === pendingPtSelection) ??
+      ptOptions[0];
+    if (!match) {
+      toast.error("Pilih perusahaan terlebih dahulu");
+      return;
+    }
+    applyEmployeeMatch(match);
+    toast.success(`Perusahaan dipilih: ${match.pt}`);
+  }
+
+  function handleCancelPt() {
+    setShowPtDialog(false);
+    setPendingPtSelection("");
+    setPtOptions([]);
+    setFullName("");
+    setSelectedPt("");
+    setNikStatus("idle");
+    setNikMessage("Pilih perusahaan (PT) untuk melanjutkan verifikasi NIK");
   }
 
   async function handleSendOtp(e: React.FormEvent) {
@@ -103,6 +175,13 @@ export default function DaftarForm() {
       return;
     }
 
+    if (ptOptions.length > 1 && !selectedPt) {
+      setLoading(false);
+      setShowPtDialog(true);
+      toast.error("Pilih perusahaan (PT) terlebih dahulu");
+      return;
+    }
+
     if (!emailValue || password.length < 6) {
       setLoading(false);
       toast.error("Lengkapi semua field dengan benar");
@@ -116,6 +195,7 @@ export default function DaftarForm() {
         email: emailValue,
         employeeNik: nik,
         fullName: name,
+        pt: selectedPt || undefined,
       }),
     });
 
@@ -170,6 +250,7 @@ export default function DaftarForm() {
         email: email.trim(),
         employeeNik: employeeNik.trim(),
         fullName: fullName.trim(),
+        pt: selectedPt || undefined,
       }),
     });
 
@@ -219,6 +300,7 @@ export default function DaftarForm() {
                   <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     NIK terverifikasi
+                    {selectedPt ? ` · ${selectedPt}` : ""}
                   </p>
                 )}
                 {nikStatus === "taken" && (
@@ -240,6 +322,24 @@ export default function DaftarForm() {
                     <XCircle className="h-3.5 w-3.5" />
                     {nikMessage}
                   </p>
+                )}
+                {nikStatus === "idle" && nikMessage && (
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-amber-700">
+                    <Building2 className="h-3.5 w-3.5" />
+                    {nikMessage}
+                  </p>
+                )}
+                {ptOptions.length > 1 && nikStatus === "verified" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingPtSelection(selectedPt || ptOptions[0]?.pt || "");
+                      setShowPtDialog(true);
+                    }}
+                    className="text-xs font-semibold text-[var(--primary)] hover:underline"
+                  >
+                    Ganti perusahaan
+                  </button>
                 )}
               </div>
               <div className="space-y-2">
@@ -307,7 +407,9 @@ export default function DaftarForm() {
                   pattern="\d{6}"
                   maxLength={6}
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onChange={(e) =>
+                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
                   placeholder="000000"
                   className="text-center text-2xl font-bold tracking-[0.4em]"
                   autoComplete="one-time-code"
@@ -315,7 +417,12 @@ export default function DaftarForm() {
                 />
               </div>
 
-              <Button type="submit" className="w-full gap-2" size="lg" disabled={loading || otp.length !== 6}>
+              <Button
+                type="submit"
+                className="w-full gap-2"
+                size="lg"
+                disabled={loading || otp.length !== 6}
+              >
                 <ShieldCheck className="h-4 w-4" />
                 {loading ? "Memverifikasi..." : "Verifikasi & Daftar"}
               </Button>
@@ -352,6 +459,82 @@ export default function DaftarForm() {
           </p>
         </CardContent>
       </Card>
+
+      {showPtDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Tutup dialog"
+            className="absolute inset-0 bg-black/40"
+            onClick={handleCancelPt}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pt-dialog-title"
+            className="relative w-full max-w-md rounded-2xl border border-[var(--border)] bg-white p-6 shadow-xl"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50">
+                <Building2 className="h-5 w-5 text-[var(--primary)]" />
+              </div>
+              <div>
+                <h3
+                  id="pt-dialog-title"
+                  className="text-lg font-semibold text-slate-900"
+                >
+                  Pilih Perusahaan
+                </h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  NIK ini terdaftar di lebih dari satu PT. Pilih PT yang sesuai,
+                  nama karyawan akan mengikuti data PT tersebut.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-2">
+              {ptOptions.map((option) => {
+                const selected = pendingPtSelection === option.pt;
+                return (
+                  <button
+                    key={`${option.pt}-${option.nomorInduk}`}
+                    type="button"
+                    onClick={() => setPendingPtSelection(option.pt)}
+                    className={cn(
+                      "w-full rounded-xl border px-4 py-3 text-left transition-colors",
+                      selected
+                        ? "border-[var(--primary)] bg-indigo-50 ring-1 ring-[var(--primary)]"
+                        : "border-[var(--border)] bg-white hover:bg-slate-50"
+                    )}
+                  >
+                    <p className="font-semibold text-slate-900">{option.pt}</p>
+                    <p className="mt-0.5 text-sm text-slate-600">
+                      {option.fullName}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      NIK {option.nomorInduk}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={handleCancelPt}>
+                Batal
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleConfirmPt}
+                disabled={!pendingPtSelection}
+              >
+                Gunakan PT ini
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </BidderAuthShell>
   );
 }

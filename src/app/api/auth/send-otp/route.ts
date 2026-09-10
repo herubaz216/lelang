@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendRegistrationOtpEmail } from "@/lib/email";
-import { fetchEmployeeByNik } from "@/lib/employee-api";
+import { fetchEmployeeByNik, pickEmployeeMatch } from "@/lib/employee-api";
 import { isEmployeeNikRegistered } from "@/lib/employee-registration";
 import {
   canResendOtp,
@@ -15,6 +15,7 @@ type SendOtpBody = {
   email?: string;
   employeeNik?: string;
   fullName?: string;
+  pt?: string;
 };
 
 export async function POST(request: Request) {
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
     const email = body.email?.trim().toLowerCase() ?? "";
     const employeeNik = body.employeeNik?.trim() ?? "";
     const fullName = body.fullName?.trim() ?? "";
+    const pt = body.pt?.trim() ?? "";
 
     if (!email || !employeeNik || !fullName) {
       return NextResponse.json(
@@ -39,14 +41,22 @@ export async function POST(request: Request) {
       );
     }
 
-    if (employee.fullName !== fullName) {
+    if (employee.matches.length > 1 && !pt) {
       return NextResponse.json(
-        { error: "Nama karyawan tidak sesuai data HR" },
+        { error: "Pilih perusahaan (PT) terlebih dahulu" },
         { status: 400 }
       );
     }
 
-    const verifiedNik = employee.nomorInduk;
+    const matched = pickEmployeeMatch(employee.matches, { fullName, pt });
+    if (!matched || matched.fullName !== fullName) {
+      return NextResponse.json(
+        { error: "Nama karyawan tidak sesuai data HR untuk PT yang dipilih" },
+        { status: 400 }
+      );
+    }
+
+    const verifiedNik = matched.nomorInduk;
 
     if (await isEmployeeNikRegistered(verifiedNik)) {
       return NextResponse.json(

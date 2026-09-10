@@ -40,5 +40,8 @@ export async function GET(request: Request) {
     ok: true,
     nomorInduk: result.nomorInduk,
     fullName: result.fullName,
+    pt: result.pt,
+    matches: result.matches,
+    requiresPtSelection: result.matches.length > 1,
   });
 }

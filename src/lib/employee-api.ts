@@ -1,7 +1,13 @@
 type EmployeeApiPayload = Record<string, unknown>;
 
+export type EmployeeMatch = {
+  nomorInduk: string;
+  fullName: string;
+  pt: string;
+};
+
 export type EmployeeLookupResult =
-  | { ok: true; nomorInduk: string; fullName: string }
+  | { ok: true; nomorInduk: string; fullName: string; pt: string; matches: EmployeeMatch[] }
   | { ok: false; error: string; status?: number };
 
 const NAME_KEYS = [
@@ -25,6 +31,8 @@ const NIK_KEYS = [
   "employeeNik",
 ];
 
+const PT_KEYS = ["pt", "PT", "company", "company_name", "companyName", "nama_pt"];
+
 function readString(value: unknown): string {
   if (typeof value === "string") return value.trim();
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -33,43 +41,158 @@ function readString(value: unknown): string {
   return "";
 }
 
-function pickName(source: EmployeeApiPayload): string {
-  for (const key of NAME_KEYS) {
+function parsePossiblyJson(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed || (trimmed[0] !== "{" && trimmed[0] !== "[")) return value;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
+function asRecord(value: unknown): EmployeeApiPayload | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as EmployeeApiPayload;
+}
+
+function pickByKeys(source: EmployeeApiPayload, keys: string[]): string {
+  for (const key of keys) {
     const value = readString(source[key]);
     if (value) return value;
   }
+
+  // Case-insensitive fallback for SP field naming quirks.
+  const entries = Object.entries(source);
+  for (const key of keys) {
+    const lower = key.toLowerCase();
+    for (const [actualKey, raw] of entries) {
+      if (actualKey.toLowerCase() !== lower) continue;
+      const value = readString(raw);
+      if (value) return value;
+    }
+  }
   return "";
+}
+
+function pickName(source: EmployeeApiPayload): string {
+  return pickByKeys(source, NAME_KEYS);
 }
 
 function pickNik(source: EmployeeApiPayload): string {
-  for (const key of NIK_KEYS) {
-    const value = readString(source[key]);
-    if (value) return value;
-  }
-  return "";
+  return pickByKeys(source, NIK_KEYS);
 }
 
-function extractEmployee(
-  payload: unknown,
+function pickPt(source: EmployeeApiPayload): string {
+  return pickByKeys(source, PT_KEYS);
+}
+
+function extractMatchFromRow(
+  row: unknown,
   fallbackNik: string
-): { nomorInduk: string; fullName: string } | null {
-  if (!payload || typeof payload !== "object") return null;
+): EmployeeMatch | null {
+  const source = asRecord(parsePossiblyJson(row));
+  if (!source) return null;
 
-  const root = payload as EmployeeApiPayload;
-  const nested =
-    root.transactionData && typeof root.transactionData === "object"
-      ? (root.transactionData as EmployeeApiPayload)
-      : root.data && typeof root.data === "object"
-        ? (root.data as EmployeeApiPayload)
-        : null;
-
-  const fullName = pickName(nested ?? {}) || pickName(root);
+  const fullName = pickName(source);
   if (!fullName) return null;
 
-  const nomorInduk =
-    pickNik(nested ?? {}) || pickNik(root) || fallbackNik.trim();
+  return {
+    nomorInduk: pickNik(source) || fallbackNik.trim(),
+    fullName,
+    pt: pickPt(source),
+  };
+}
 
-  return { nomorInduk, fullName };
+function collectRows(raw: unknown): unknown[] {
+  const parsed = parsePossiblyJson(raw);
+
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && typeof parsed === "object") {
+    const record = parsed as EmployeeApiPayload;
+    // Nested wrappers sometimes used by SP/API middleware.
+    const nested =
+      record.transactionData ??
+      record.data ??
+      record.rows ??
+      record.items ??
+      record.result;
+    if (nested != null && nested !== parsed) {
+      return collectRows(nested);
+    }
+    return [parsed];
+  }
+  return [];
+}
+
+/** Ambil semua kandidat karyawan dari respons API (object tunggal atau array). */
+export function extractEmployeeMatches(
+  payload: unknown,
+  fallbackNik: string
+): EmployeeMatch[] {
+  const rootPayload = parsePossiblyJson(payload);
+  if (!rootPayload || typeof rootPayload !== "object") return [];
+
+  const root = rootPayload as EmployeeApiPayload;
+  const raw = root.transactionData ?? root.data ?? root;
+  const rows = collectRows(raw);
+
+  const matches: EmployeeMatch[] = [];
+  const seen = new Set<string>();
+
+  for (const row of rows) {
+    const match = extractMatchFromRow(row, fallbackNik);
+    if (!match) continue;
+
+    const key = `${match.pt.toLowerCase()}|${match.nomorInduk}|${match.fullName.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    matches.push(match);
+  }
+
+  // Fallback: nama di root tanpa nested transactionData
+  if (matches.length === 0) {
+    const rootMatch = extractMatchFromRow(root, fallbackNik);
+    if (rootMatch) matches.push(rootMatch);
+  }
+
+  return matches;
+}
+
+export function pickEmployeeMatch(
+  matches: EmployeeMatch[],
+  options?: { fullName?: string; pt?: string }
+): EmployeeMatch | null {
+  if (matches.length === 0) return null;
+
+  const fullName = options?.fullName?.trim() ?? "";
+  const pt = options?.pt?.trim() ?? "";
+
+  if (pt && fullName) {
+    const exact = matches.find(
+      (match) =>
+        match.pt.toLowerCase() === pt.toLowerCase() &&
+        match.fullName === fullName
+    );
+    if (exact) return exact;
+  }
+
+  if (pt) {
+    const byPt = matches.find(
+      (match) => match.pt.toLowerCase() === pt.toLowerCase()
+    );
+    if (byPt) return byPt;
+  }
+
+  if (fullName) {
+    const byName = matches.filter((match) => match.fullName === fullName);
+    if (byName.length === 1) return byName[0];
+    if (byName.length > 1) return null;
+  }
+
+  if (matches.length === 1) return matches[0];
+  return null;
 }
 
 function getEmployeeApiConfig() {
@@ -153,8 +276,8 @@ export async function fetchEmployeeByNik(
     };
   }
 
-  const employee = extractEmployee(body, nik);
-  if (!employee) {
+  const matches = extractEmployeeMatches(body, nik);
+  if (matches.length === 0) {
     return {
       ok: false,
       error: "Data karyawan tidak lengkap dari server",
@@ -162,9 +285,12 @@ export async function fetchEmployeeByNik(
     };
   }
 
+  const primary = matches[0];
   return {
     ok: true,
-    nomorInduk: employee.nomorInduk,
-    fullName: employee.fullName,
+    nomorInduk: primary.nomorInduk,
+    fullName: primary.fullName,
+    pt: primary.pt,
+    matches,
   };
 }
