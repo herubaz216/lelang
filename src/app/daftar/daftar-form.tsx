@@ -26,6 +26,8 @@ type EmployeeMatchOption = {
   nomorInduk: string;
   fullName: string;
   pt: string;
+  companyId?: string;
+  companyCode?: string;
 };
 
 export default function DaftarForm() {
@@ -33,6 +35,7 @@ export default function DaftarForm() {
   const [employeeNik, setEmployeeNik] = useState("");
   const [fullName, setFullName] = useState("");
   const [selectedPt, setSelectedPt] = useState("");
+  const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [ptOptions, setPtOptions] = useState<EmployeeMatchOption[]>([]);
   const [showPtDialog, setShowPtDialog] = useState(false);
   const [pendingPtSelection, setPendingPtSelection] = useState<string>("");
@@ -50,6 +53,7 @@ export default function DaftarForm() {
   function resetEmployeeFields() {
     setFullName("");
     setSelectedPt("");
+    setSelectedCompanyId("");
     setPtOptions([]);
     setShowPtDialog(false);
     setPendingPtSelection("");
@@ -58,6 +62,7 @@ export default function DaftarForm() {
   function applyEmployeeMatch(match: EmployeeMatchOption) {
     setFullName(match.fullName);
     setSelectedPt(match.pt);
+    setSelectedCompanyId(match.companyId ?? "");
     setNikStatus("verified");
     setNikMessage("");
     setShowPtDialog(false);
@@ -116,6 +121,8 @@ export default function DaftarForm() {
           nomorInduk: data.nomorInduk as string,
           fullName: (data.fullName as string) ?? "",
           pt: (data.pt as string) ?? "",
+          companyId: data.companyId as string | undefined,
+          companyCode: data.companyCode as string | undefined,
         };
         setPtOptions(matches.length ? matches : [single]);
         applyEmployeeMatch(single);
@@ -157,6 +164,7 @@ export default function DaftarForm() {
     setPtOptions([]);
     setFullName("");
     setSelectedPt("");
+    setSelectedCompanyId("");
     setNikStatus("idle");
     setNikMessage("Pilih perusahaan (PT) untuk melanjutkan verifikasi NIK");
   }
@@ -196,6 +204,7 @@ export default function DaftarForm() {
         employeeNik: nik,
         fullName: name,
         pt: selectedPt || undefined,
+        companyId: selectedCompanyId || undefined,
       }),
     });
 
@@ -251,6 +260,7 @@ export default function DaftarForm() {
         employeeNik: employeeNik.trim(),
         fullName: fullName.trim(),
         pt: selectedPt || undefined,
+        companyId: selectedCompanyId || undefined,
       }),
     });
 
@@ -513,6 +523,9 @@ export default function DaftarForm() {
                     </p>
                     <p className="mt-0.5 text-xs text-slate-500">
                       NIK {option.nomorInduk}
+                      {option.companyCode
+                        ? ` · ${option.companyCode.toUpperCase()}`
+                        : ""}
                     </p>
                   </button>
                 );

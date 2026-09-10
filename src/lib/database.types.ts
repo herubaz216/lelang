@@ -429,6 +429,8 @@ export type Database = {
           otp_hash: string;
           employee_nik: string;
           full_name: string;
+          company_id: string | null;
+          pt_name: string | null;
           attempts: number;
           expires_at: string;
           created_at: string;
@@ -439,6 +441,8 @@ export type Database = {
           otp_hash: string;
           employee_nik: string;
           full_name: string;
+          company_id?: string | null;
+          pt_name?: string | null;
           attempts?: number;
           expires_at: string;
           created_at?: string;
@@ -449,6 +453,8 @@ export type Database = {
           otp_hash?: string;
           employee_nik?: string;
           full_name?: string;
+          company_id?: string | null;
+          pt_name?: string | null;
           attempts?: number;
           expires_at?: string;
           created_at?: string;
@@ -582,6 +588,7 @@ export type Database = {
         Args: {
           p_employee_nik: string;
           p_full_name: string;
+          p_company_id?: string | null;
         };
         Returns: string;
       };

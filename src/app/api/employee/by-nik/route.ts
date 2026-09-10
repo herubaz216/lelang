@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchEmployeeByNik } from "@/lib/employee-api";
-import { isEmployeeNikRegistered } from "@/lib/employee-registration";
+import { filterUnregisteredEmployeeMatches } from "@/lib/employee-registration";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -25,23 +25,30 @@ export async function GET(request: Request) {
     );
   }
 
-  const alreadyRegistered = await isEmployeeNikRegistered(result.nomorInduk);
-  if (alreadyRegistered) {
+  const availableMatches = await filterUnregisteredEmployeeMatches(
+    result.matches
+  );
+
+  if (availableMatches.length === 0) {
     return NextResponse.json(
       {
-        error: "NIK sudah terdaftar di E-Lelang. Silakan login.",
+        error: "NIK sudah terdaftar di E-Lelang untuk semua PT terkait. Silakan login.",
         alreadyRegistered: true,
       },
       { status: 409 }
     );
   }
 
+  const primary = availableMatches[0];
+
   return NextResponse.json({
     ok: true,
-    nomorInduk: result.nomorInduk,
-    fullName: result.fullName,
-    pt: result.pt,
-    matches: result.matches,
-    requiresPtSelection: result.matches.length > 1,
+    nomorInduk: primary.nomorInduk,
+    fullName: primary.fullName,
+    pt: primary.pt,
+    companyId: primary.companyId,
+    companyCode: primary.companyCode,
+    matches: availableMatches,
+    requiresPtSelection: availableMatches.length > 1,
   });
 }

@@ -96,26 +96,46 @@ export async function POST(request: Request) {
     }
 
     const verifiedNik = otpRecord.employee_nik;
+    const companyId = otpRecord.company_id;
 
-    if (await isEmployeeNikRegistered(verifiedNik)) {
+    if (!companyId) {
       return NextResponse.json(
-        { error: "NIK sudah terdaftar di E-Lelang. Silakan login." },
+        { error: "Data perusahaan pada OTP tidak lengkap. Kirim ulang OTP." },
+        { status: 400 }
+      );
+    }
+
+    if (await isEmployeeNikRegistered(verifiedNik, companyId)) {
+      return NextResponse.json(
+        {
+          error:
+            "NIK sudah terdaftar di E-Lelang untuk perusahaan ini. Silakan login.",
+        },
         { status: 409 }
       );
     }
 
+    const { data: company } = await admin
+      .from("companies")
+      .select("code")
+      .eq("id", companyId)
+      .maybeSingle();
+
+    const username = `${(company?.code ?? "ams").toLowerCase()}_${verifiedNik.toLowerCase()}`;
+
     const { error: createError } = await admin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          name: fullName,
-          full_name: fullName,
-          employee_nik: verifiedNik,
-          username: verifiedNik.toLowerCase(),
-          role: "bidder",
-        },
-      });
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        name: fullName,
+        full_name: fullName,
+        employee_nik: verifiedNik,
+        username,
+        role: "bidder",
+        company_id: companyId,
+      },
+    });
 
     if (createError) {
       if (createError.message.toLowerCase().includes("already")) {

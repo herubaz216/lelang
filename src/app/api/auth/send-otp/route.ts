@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendRegistrationOtpEmail } from "@/lib/email";
 import { fetchEmployeeByNik, pickEmployeeMatch } from "@/lib/employee-api";
-import { isEmployeeNikRegistered } from "@/lib/employee-registration";
+import {
+  isEmployeeNikRegistered,
+  resolveCompanyFromPt,
+} from "@/lib/employee-registration";
 import {
   canResendOtp,
   generateOtpCode,
@@ -16,6 +19,7 @@ type SendOtpBody = {
   employeeNik?: string;
   fullName?: string;
   pt?: string;
+  companyId?: string;
 };
 
 export async function POST(request: Request) {
@@ -25,6 +29,7 @@ export async function POST(request: Request) {
     const employeeNik = body.employeeNik?.trim() ?? "";
     const fullName = body.fullName?.trim() ?? "";
     const pt = body.pt?.trim() ?? "";
+    const companyIdInput = body.companyId?.trim() ?? "";
 
     if (!email || !employeeNik || !fullName) {
       return NextResponse.json(
@@ -41,7 +46,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (employee.matches.length > 1 && !pt) {
+    if (employee.matches.length > 1 && !pt && !companyIdInput) {
       return NextResponse.json(
         { error: "Pilih perusahaan (PT) terlebih dahulu" },
         { status: 400 }
@@ -56,11 +61,37 @@ export async function POST(request: Request) {
       );
     }
 
+    const admin = createAdminClient();
+
+    const company =
+      (companyIdInput
+        ? (
+            await admin
+              .from("companies")
+              .select("*")
+              .eq("id", companyIdInput)
+              .maybeSingle()
+          ).data
+        : null) ?? (await resolveCompanyFromPt(matched.pt));
+
+    if (!company) {
+      return NextResponse.json(
+        {
+          error:
+            "Perusahaan dari data HR belum terdaftar di E-Lelang. Hubungi admin.",
+        },
+        { status: 400 }
+      );
+    }
+
     const verifiedNik = matched.nomorInduk;
 
-    if (await isEmployeeNikRegistered(verifiedNik)) {
+    if (await isEmployeeNikRegistered(verifiedNik, company.id)) {
       return NextResponse.json(
-        { error: "NIK sudah terdaftar di E-Lelang. Silakan login." },
+        {
+          error:
+            "NIK sudah terdaftar di E-Lelang untuk perusahaan ini. Silakan login.",
+        },
         { status: 409 }
       );
     }
@@ -68,8 +99,6 @@ export async function POST(request: Request) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: "Format email tidak valid" }, { status: 400 });
     }
-
-    const admin = createAdminClient();
 
     const { data: emailTaken } = await admin.rpc("email_exists", {
       p_email: email,
@@ -109,6 +138,8 @@ export async function POST(request: Request) {
       otp_hash: hashOtp(email, otp),
       employee_nik: verifiedNik,
       full_name: fullName,
+      company_id: company.id,
+      pt_name: matched.pt || company.name,
       attempts: 0,
       expires_at: expiresAt.toISOString(),
     });
